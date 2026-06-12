@@ -1,0 +1,13 @@
+server:
+  port: 9026
+
+spring:
+  devtools:
+    restart:
+      enabled: false  # 禁用热重载，避免类加载器冲突
+
+#BotAdminList
+bot:
+  admin:
+    qq-list:
+      - 1948259961
