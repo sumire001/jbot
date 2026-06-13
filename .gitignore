@@ -31,5 +31,4 @@ build/
 
 ### VS Code ###
 .vscode/
-/src/main/java/com/bot/jone/ioutils/images/pjsk_images/
-/src/main/java/com/bot/jone/ioutils/memes/
+/src/main/java/com/bot/jone/ioutils/images/
