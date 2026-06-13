@@ -6,8 +6,18 @@ spring:
     restart:
       enabled: false  # 禁用热重载，避免类加载器冲突
 
-#BotAdminList
+# Bot配置
 bot:
   admin:
     qq-list:
       - 1948259961
+  # Temp目录清理配置
+  temp:
+    retention-days: 7  # 文件保留天数（常见配置：3/7/14）
+                     # 3天 - 节省空间，适合频繁使用
+                     # 7天 - 平衡选择（默认）
+                     # 14天 - 保守策略，防止误删
+    clean-cron: "0 0 3 * * ?"  # 定时清理的Cron表达式
+                               # 默认每天凌晨3点执行
+                               # 其他示例："0 0 0/6 * * ?" (每6小时)
+                               #          "0 0 0 * * ?" (每天午夜)

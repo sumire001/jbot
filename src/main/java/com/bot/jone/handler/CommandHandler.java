@@ -201,22 +201,40 @@ public class CommandHandler {
         
         log.info("开始偷表情包: {}", imageUrl);
         
-        // 下载图片
-        byte[] imageData = imageDownloader.downloadImage(imageUrl);
-        if (imageData == null || imageData.length == 0) {
-            apiClient.sendText(session, "group", event.getGroupId(), "下载图片失败，请重试");
-            return;
+        // 从缓存中查找该图片是否已在temp中
+        String tempFilePath = null;
+        
+        if (repliedMessageId != null) {
+            JSONObject repliedMessage = messageCacheManager.getCachedMessage(repliedMessageId);
+            if (repliedMessage != null) {
+                JSONArray repliedMessageArray = repliedMessage.getJSONArray("message");
+                String cachedImageUrl = extractImageUrl(repliedMessageArray);
+                
+                if (cachedImageUrl != null && cachedImageUrl.equals(imageUrl)) {
+                    tempFilePath = findTempFileByUserId(event.getUserId());
+                }
+            }
         }
         
-        // 提取文件扩展名
-        String extension = imageDownloader.extractExtension(imageUrl);
+        java.io.File savedFile = null;
         
-        // 生成文件名（使用用户 QQ 号作为标识）
-        String fileName = "stolen_" + event.getUserId();
-        
-        // 保存到旯给木表情包分类
-        java.io.File savedFile = memeManager.saveMeme(imageData, "旮旯给木表情包", fileName, extension);
-        
+        if (tempFilePath != null) {
+            // 从temp复制到memes
+            log.info("从temp复制图片到memes: {}", tempFilePath);
+            savedFile = memeManager.copyFromTempToMemes(tempFilePath, event.getUserId());
+        } else {
+            // 没有缓存，直接下载保存（电脑端或新图片）
+            byte[] imageData = imageDownloader.downloadImage(imageUrl);
+            if (imageData == null || imageData.length == 0) {
+                apiClient.sendText(session, "group", event.getGroupId(), "下载图片失败，请重试");
+                return;
+            }
+            
+            String extension = imageDownloader.extractExtension(imageUrl);
+            String fileName = "stolen_" + event.getUserId();
+            savedFile = memeManager.saveMeme(imageData, "旮给木表情包", fileName, extension);
+        }
+
         if (savedFile != null) {
             apiClient.sendText(session, "group", event.getGroupId(), 
                 "偷图成功！");
@@ -224,6 +242,47 @@ public class CommandHandler {
         } else {
             apiClient.sendText(session, "group", event.getGroupId(), "保存表情包失败，请重试");
         }
+    }
+    
+    /**
+     * 根据用户ID在temp目录中查找最新的图片文件
+     * @param userId 用户ID
+     * @return 文件路径，如果没找到返回 null
+     */
+    private String findTempFileByUserId(Long userId) {
+        try {
+            java.io.File tempDir = new java.io.File("src/main/java/com/bot/jone/ioutils/images/temp");
+            if (!tempDir.exists() || !tempDir.isDirectory()) {
+                return null;
+            }
+            
+            java.io.File[] files = tempDir.listFiles();
+            if (files == null || files.length == 0) {
+                return null;
+            }
+            
+            // 查找包含该userId的最新文件
+            java.io.File latestFile = null;
+            long latestTime = 0;
+            
+            for (java.io.File file : files) {
+                if (file.isFile() && file.getName().contains("auto_" + userId)) {
+                    long fileTime = file.lastModified();
+                    if (fileTime > latestTime) {
+                        latestTime = fileTime;
+                        latestFile = file;
+                    }
+                }
+            }
+            
+            if (latestFile != null) {
+                return latestFile.getAbsolutePath();
+            }
+        } catch (Exception e) {
+            log.error("查找temp文件异常", e);
+        }
+        
+        return null;
     }
     
     /**
