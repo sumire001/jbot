@@ -22,4 +22,11 @@ public class ImagesConfig {
     public String getTempDir() {
         return rootDir + "/temp";
     }
+
+    /**
+     * 获取Pixiv图片缓存目录路径（独立于普通temp）
+     */
+    public String getPixivTempDir() {
+        return rootDir + "/pixiv_temp";
+    }
 }

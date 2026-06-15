@@ -11,7 +11,10 @@ import java.io.IOException;
 @Slf4j
 @Component
 public class OneBotApiClient {
-    
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.bot.jone.ioutils.ImageCompressor imageCompressor;
+
     /**
      * 通过 WebSocket 发送文本消息
      */
@@ -40,13 +43,23 @@ public class OneBotApiClient {
     }
     
     /**
-     * 通过 WebSocket 发送图片消息
+     * 通过 WebSocket 发送图片消息（发送本地文件路径）
+     * 发送前自动压缩大图片，避免 LLOneBot 超时
      * @param session WebSocket 会话
      * @param msgType 消息类型: "group" 或 "private"
      * @param targetId 目标ID（群号或用户ID）
      * @param imagePath 图片文件路径
      */
     public void sendImage(Session session, String msgType, Long targetId, String imagePath) {
+        // 发送前自动压缩大图片
+        String effectivePath = imagePath;
+        if (imageCompressor != null) {
+            effectivePath = imageCompressor.compressIfNeeded(imagePath);
+            if (!effectivePath.equals(imagePath)) {
+                log.info("发送图片: 已压缩 ({} -> {})", imagePath, effectivePath);
+            }
+        }
+
         JSONObject action = new JSONObject();
         action.put("action", "send_msg");
         
@@ -57,16 +70,49 @@ public class OneBotApiClient {
         JSONArray msgArray = new JSONArray();
         msgArray.add(new JSONObject()
             .fluentPut("type", "image")
-            .fluentPut("data", new JSONObject().fluentPut("file", imagePath)));
+            .fluentPut("data", new JSONObject().fluentPut("file", effectivePath)));
             
         params.put("message", msgArray);
         action.put("params", params);
         
         try {
-            session.getBasicRemote().sendText(action.toJSONString());
-            log.info("发送图片: {}", imagePath);
+            String jsonPayload = action.toJSONString();
+            session.getBasicRemote().sendText(jsonPayload);
+            log.info("发送图片: {}, payload: {}", effectivePath, jsonPayload.length() > 200 ? jsonPayload.substring(0, 200) + "..." : jsonPayload);
         } catch (IOException e) {
-            log.error("发送图片失败: {}", imagePath, e);
+            log.error("发送图片失败: {}", effectivePath, e);
+        }
+    }
+
+    /**
+     * 通过 WebSocket 发送图片消息（直接发送 URL）
+     * @param session WebSocket 会话
+     * @param msgType 消息类型: "group" 或 "private"
+     * @param targetId 目标ID（群号或用户ID）
+     * @param imageUrl 图片 URL
+     */
+    public void sendImageUrl(Session session, String msgType, Long targetId, String imageUrl) {
+        JSONObject action = new JSONObject();
+        action.put("action", "send_msg");
+
+        JSONObject params = new JSONObject();
+        params.put(msgType.equals("group") ? "group_id" : "user_id", targetId);
+
+        // 封装图片消息段，使用 URL 方式发送
+        JSONArray msgArray = new JSONArray();
+        msgArray.add(new JSONObject()
+            .fluentPut("type", "image")
+            .fluentPut("data", new JSONObject().fluentPut("file", imageUrl)));
+
+        params.put("message", msgArray);
+        action.put("params", params);
+
+        try {
+            String jsonPayload = action.toJSONString();
+            session.getBasicRemote().sendText(jsonPayload);
+            log.info("发送图片URL: {}, payload: {}", imageUrl, jsonPayload.length() > 200 ? jsonPayload.substring(0, 200) + "..." : jsonPayload);
+        } catch (IOException e) {
+            log.error("发送图片URL失败: {}", imageUrl, e);
         }
     }
     

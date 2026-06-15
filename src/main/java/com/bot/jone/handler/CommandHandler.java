@@ -4,15 +4,19 @@ import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.bot.jone.client.OneBotApiClient;
 import com.bot.jone.config.ImagesConfig;
+import com.bot.jone.ioutils.ImageCompressor;
 import com.bot.jone.ioutils.ImageDownloader;
 import com.bot.jone.ioutils.MemeManager;
 import com.bot.jone.model.OneBotEvent;
 import com.bot.jone.permission.PermissionService;
+import com.bot.jone.service.AnimeImageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import javax.websocket.Session;
+import java.util.Random;
 
 @Component
 @Slf4j
@@ -35,12 +39,23 @@ public class CommandHandler {
 
     @Autowired
     private ImagesConfig imagesConfig;
-    
+
+    @Autowired
+    private ImageCompressor imageCompressor;
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    private final Random random = new Random();
+
     public void handle(OneBotEvent event, Session session) {
         // 提取消息内容（支持多种类型）
         String content = extractMessageContent(event.getMessage());
         //打印聊天日志
         log.info("[{}]{}/{}:{}", event.getGroupId(), event.getUserId(), event.getSender().getNickname(), content);
+        
+        // 调试：打印原始消息内容和命令匹配情况
+        log.debug("消息内容长度: {}, startsWith(随机): {}", content.length(), content.startsWith("随机"));
         
         if ("/测试".equals(content)) {
             if ("group".equals(event.getMessageType())) {
@@ -55,6 +70,9 @@ public class CommandHandler {
             // 处理偷表情包命令，支持分类参数
             String[] categoryParams = extractCategoryParams(content);
             handleStealMeme(event, session, categoryParams[0], Boolean.parseBoolean(categoryParams[1]));
+        } else if (content.startsWith("随机") && content.endsWith("图")) {
+            // 处理随机二次元图片命令，格式：随机XX图
+            handleRandomImageCommand(event, session, content);
         }
         // 以后加新功能，直接在这里加 else if，或者使用策略模式/注解路由
     }
@@ -152,6 +170,75 @@ public class CommandHandler {
         
         // 可选：发送确认消息
         // apiClient.sendText(session, "group", groupId, "已戳 " + event.getSender().getNickname());
+    }
+
+    /**
+     * 处理随机二次元图片命令
+     * 格式: "随机XX图"，提取中间的XX作为搜索关键词
+     * 优化流程: 下载 → 内存中压缩 → 存 pixiv_temp → 发送压缩图
+     */
+    private void handleRandomImageCommand(OneBotEvent event, Session session, String content) {
+        // 提取关键词（去掉开头的"随机"和结尾的"图"）
+        String keyword = content.substring(2, content.length() - 1).trim();
+
+        if (keyword.isEmpty()) {
+            apiClient.sendText(session, event.getMessageType(),
+                "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId(),
+                "请输入搜索关键词，例如：随机猫猫图 或 随机原神图");
+            return;
+        }
+
+        Long targetId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
+
+        // 调用图片搜索服务
+        AnimeImageService imageService = applicationContext.getBean(AnimeImageService.class);
+        log.info("[随机图片] 关键词={}, 调用API搜索...", keyword);
+        AnimeImageService.ImageResult result = imageService.searchImageWithInfo(keyword);
+        log.info("[随机图片] API返回: result={}, url={}",
+            result == null ? "null" : "OK",
+            result == null ? "null" : result.getUrl());
+
+        if (result == null) {
+            apiClient.sendText(session, event.getMessageType(), targetId,
+                "未找到 [" + keyword + "] 相关的图片");
+            return;
+        }
+
+        // 下载图片到内存
+        byte[] imageData = imageDownloader.downloadImage(result.getUrl());
+        if (imageData == null || imageData.length == 0) {
+            apiClient.sendText(session, event.getMessageType(), targetId, "图片下载失败");
+            return;
+        }
+
+        log.info("[随机图片] 下载完成: {}KB, 开始压缩并保存...", imageData.length / 1024);
+
+        // 在内存中直接压缩并保存到 pixiv_temp（不存原图，不走 temp 目录）
+        String compressedPath = imageCompressor.compressBytesToDir(
+            imageData, keyword, imagesConfig.getPixivTempDir());
+
+        String sendPath;
+        if (compressedPath != null) {
+            // 压缩成功，发送压缩后的图片
+            sendPath = compressedPath;
+            log.info("[随机图片] 压缩并保存成功: {}", sendPath);
+        } else {
+            // 压缩失败或是小图无需压缩，直接存原图到 pixiv_temp 后发送
+            String extension = imageDownloader.extractExtension(result.getUrl());
+            String fileName = keyword + "_" + System.currentTimeMillis();
+            java.io.File savedFile = memeManager.saveToCustomDir(
+                imageData, imagesConfig.getPixivTempDir(), fileName, extension);
+            if (savedFile == null) {
+                apiClient.sendText(session, event.getMessageType(), targetId, "图片保存失败");
+                return;
+            }
+            sendPath = savedFile.getAbsolutePath();
+            log.info("[随机图片] 保存原图到pixiv_temp: {}", sendPath);
+        }
+
+        // 发送图片（已经压缩过，直接发送路径，不走二次压缩）
+        apiClient.sendImageUrl(session, event.getMessageType(), targetId, sendPath);
+        log.info("[随机图片] 发送完成: {} by {}", result.getTitle(), result.getAuthor());
     }
     
     /**

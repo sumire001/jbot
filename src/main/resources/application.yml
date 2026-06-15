@@ -16,11 +16,13 @@ bot:
     root-dir: ./data/images  # 图片根目录，默认 ./data/images（相对于工作目录）
   # Temp目录清理配置
   temp:
-    retention-days: 7  # 文件保留天数（常见配置：3/7/14）
-                     # 3天 - 节省空间，适合频繁使用
-                     # 7天 - 平衡选择（默认）
-                     # 14天 - 保守策略，防止误删
-    clean-cron: "0 0 3 * * ?"  # 定时清理的Cron表达式
-                               # 默认每天凌晨3点执行
-                               # 其他示例："0 0 0/6 * * ?" (每6小时)
-                               #          "0 0 0 * * ?" (每天午夜)
+    retention-days: 7  # 文件保留天数
+    clean-cron: "0 0 3 * * ?"  # 定时清理：每天凌晨3点
+    max-file-size-mb: 50  # 单个文件大小参考值（超过则更易被清理）
+    max-dir-size-mb: 200  # 目录总大小上限 200MB
+    pixiv-retention-hours: 24  # Pixiv缓存保留 24 小时
+    pixiv-clean-cron: "0 0 * * * ?"  # Pixiv清理：每小时
+    pixiv-max-dir-size-mb: 500  # Pixiv缓存目录上限 500MB
+  # 二次元图片API配置
+  anime-api:
+    url: https://api.lolicon.app/setu/v2  # Lolicon API 地址

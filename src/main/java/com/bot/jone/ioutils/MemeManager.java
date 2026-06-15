@@ -166,6 +166,18 @@ public class MemeManager {
     public File saveToTemp(byte[] imageData, String fileName, String extension) {
         return saveToDirectory(imageData, getTempDir(), fileName, extension);
     }
+
+    /**
+     * 保存到自定义目录（用于 Pixiv 缓存等独立分类）
+     * @param imageData 图片字节数据
+     * @param customDir 自定义目录路径
+     * @param fileName 文件名（不含扩展名）
+     * @param extension 文件扩展名
+     * @return 保存后的文件对象，失败返回 null
+     */
+    public File saveToCustomDir(byte[] imageData, String customDir, String fileName, String extension) {
+        return saveToDirectory(imageData, customDir, fileName, extension);
+    }
     
     /**
      * 通用保存方法
