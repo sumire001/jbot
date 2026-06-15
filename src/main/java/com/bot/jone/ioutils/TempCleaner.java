@@ -1,5 +1,6 @@
 package com.bot.jone.ioutils;
 
+import com.bot.jone.config.ImagesConfig;
 import com.bot.jone.config.TempCleanConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +21,9 @@ public class TempCleaner {
     
     @Autowired
     private TempCleanConfiguration config;
-    
-    private String tempDir = "src/main/java/com/bot/jone/ioutils/images/temp";
+
+    @Autowired
+    private ImagesConfig imagesConfig;
     
     /**
      * 启动时检查并清理过期文件（防止长时间停机后积压）
@@ -48,9 +50,9 @@ public class TempCleaner {
     public void cleanOldFiles() {
         log.info("开始清理temp目录过期文件...");
         
-        File dir = new File(tempDir);
+        File dir = new File(imagesConfig.getTempDir());
         if (!dir.exists() || !dir.isDirectory()) {
-            log.warn("temp目录不存在: {}", tempDir);
+            log.warn("temp目录不存在: {}", imagesConfig.getTempDir());
             return;
         }
         
@@ -105,7 +107,7 @@ public class TempCleaner {
      * @return 文件数量和总大小
      */
     public String getTempStatus() {
-        File dir = new File(tempDir);
+        File dir = new File(imagesConfig.getTempDir());
         if (!dir.exists() || !dir.isDirectory()) {
             return "temp目录不存在";
         }

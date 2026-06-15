@@ -3,6 +3,7 @@ package com.bot.jone.handler;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.bot.jone.client.OneBotApiClient;
+import com.bot.jone.config.ImagesConfig;
 import com.bot.jone.ioutils.ImageDownloader;
 import com.bot.jone.ioutils.MemeManager;
 import com.bot.jone.model.OneBotEvent;
@@ -31,6 +32,9 @@ public class CommandHandler {
     
     @Autowired
     private PermissionService permissionService;
+
+    @Autowired
+    private ImagesConfig imagesConfig;
     
     public void handle(OneBotEvent event, Session session) {
         // 提取消息内容（支持多种类型）
@@ -48,8 +52,9 @@ public class CommandHandler {
             // 处理戳一戳命令
             handlePokeCommand(event, session);
         } else if (content.contains("偷一下")) {
-            // 处理偷表情包命令
-            handleStealMeme(event, session);
+            // 处理偷表情包命令，支持分类参数
+            String[] categoryParams = extractCategoryParams(content);
+            handleStealMeme(event, session, categoryParams[0], Boolean.parseBoolean(categoryParams[1]));
         }
         // 以后加新功能，直接在这里加 else if，或者使用策略模式/注解路由
     }
@@ -150,9 +155,54 @@ public class CommandHandler {
     }
     
     /**
-     * 处理偷表情包命令（支持引用消息）
+     * 从"偷一下"命令中提取分类参数
+     * 格式: "偷一下 [分类名] [new]"，如果没有分类则返回默认值 memes
+     * @return String[] [0]=分类名, [1]=是否创建新分类(true/false)
      */
-    private void handleStealMeme(OneBotEvent event, Session session) {
+    private String[] extractCategoryParams(String content) {
+        String defaultCategory = "memes";
+        
+        // 参数校验：如果内容为空或不包含"偷一下"命令，返回默认分类
+        if (content == null || !content.contains("偷一下")) {
+            return new String[]{defaultCategory, "false"};
+        }
+        
+        // 找到"偷一下"在字符串中的位置
+        int index = content.indexOf("偷一下");
+        // 截取"偷一下"后面的内容并去除首尾空格
+        String rest = content.substring(index + 3).trim();
+        
+        // 如果后面没有内容，使用默认分类
+        if (rest.isEmpty()) {
+            return new String[]{defaultCategory, "false"};
+        }
+        
+        // 按空白字符分割
+        String[] parts = rest.split("\\s+");
+        
+        // 只有"偷一下"命令，没有分类参数，使用默认分类
+        if (parts.length == 1 && parts[0].isEmpty()) {
+            return new String[]{defaultCategory, "false"};
+        }
+        
+        // 只有一个参数（分类名）
+        if (parts.length >= 1 && !parts[0].isEmpty()) {
+            // 检查第二个参数是否为"new"
+            boolean shouldCreate = parts.length >= 2 && "new".equalsIgnoreCase(parts[1]);
+            return new String[]{parts[0], shouldCreate ? "true" : "false"};
+        }
+        
+        return new String[]{defaultCategory, "false"};
+    }
+    
+    /**
+     * 处理偷表情包命令（支持引用消息和分类参数）
+     * @param event 事件对象
+     * @param session WebSocket会话
+     * @param category 目标分类名
+     * @param createNewCategory 是否创建新分类
+     */
+    private void handleStealMeme(OneBotEvent event, Session session, String category, boolean createNewCategory) {
         // 权限检查：只有管理员可以偷图
         Long userId = event.getUserId();
         if (!permissionService.isAdmin(userId)) {
@@ -160,6 +210,22 @@ public class CommandHandler {
                 "使用该功能需要管理员权限");
             log.warn("非管理员尝试偷图: user={}", userId);
             return;
+        }
+        
+        // 检查分类是否存在
+        boolean isNewCategory = false;
+        if (!memeManager.categoryExists(category)) {
+            if (createNewCategory) {
+                // 创建新分类
+                memeManager.createCategory(category);
+                isNewCategory = true;
+                log.info("创建新分类: {}", category);
+            } else {
+                // 分类不存在且不创建，报错
+                apiClient.sendText(session, "group", event.getGroupId(), 
+                    "分类 [" + category + "] 不存在");
+                return;
+            }
         }
         
         String imageUrl = null;
@@ -172,8 +238,24 @@ public class CommandHandler {
             JSONObject repliedMessage = messageCacheManager.getCachedMessage(repliedMessageId);
             
             if (repliedMessage == null) {
-                apiClient.sendText(session, "group", event.getGroupId(), 
-                    "未找到引用的消息（可能已过期或未被缓存）\n提示：机器人需要收到过该消息才能偷图");
+                // 缓存已过期，尝试直接在 temp 中查找（文件可能还在）
+                String tempFilePath = findTempFileByMessageId(repliedMessageId);
+                if (tempFilePath != null) {
+                    log.info("缓存已过期，但 temp 中找到文件: {}，直接复制", tempFilePath);
+                    java.io.File savedFile = memeManager.copyFromTempToCategory(tempFilePath, event.getUserId(), category);
+                    if (savedFile != null) {
+                        if (isNewCategory) {
+                            apiClient.sendText(session, "group", event.getGroupId(),
+                                "创建分类 [" + category + "] 成功！\n保存成功！");
+                        } else {
+                            apiClient.sendText(session, "group", event.getGroupId(), "偷图成功！");
+                        }
+                        log.info("偷图成功（从temp）: {} -> {}", tempFilePath, savedFile.getAbsolutePath());
+                        return;
+                    }
+                }
+                apiClient.sendText(session, "group", event.getGroupId(),
+                    "未找到引用的消息（可能已过期或未被缓存）\n提示：只有收到过该消息才能偷图");
                 return;
             }
             
@@ -205,23 +287,18 @@ public class CommandHandler {
         String tempFilePath = null;
         
         if (repliedMessageId != null) {
-            JSONObject repliedMessage = messageCacheManager.getCachedMessage(repliedMessageId);
-            if (repliedMessage != null) {
-                JSONArray repliedMessageArray = repliedMessage.getJSONArray("message");
-                String cachedImageUrl = extractImageUrl(repliedMessageArray);
-                
-                if (cachedImageUrl != null && cachedImageUrl.equals(imageUrl)) {
-                    tempFilePath = findTempFileByUserId(event.getUserId());
-                }
+            tempFilePath = findTempFileByMessageId(repliedMessageId);
+            if (tempFilePath == null) {
+                log.info("未在temp中找到 message_id={} 的缓存文件，将直接下载", repliedMessageId);
             }
         }
         
         java.io.File savedFile = null;
         
         if (tempFilePath != null) {
-            // 从temp复制到memes
-            log.info("从temp复制图片到memes: {}", tempFilePath);
-            savedFile = memeManager.copyFromTempToMemes(tempFilePath, event.getUserId());
+            // 从temp复制到指定分类
+            log.info("从temp复制图片到分类[{}]: {}", category, tempFilePath);
+            savedFile = memeManager.copyFromTempToCategory(tempFilePath, event.getUserId(), category);
         } else {
             // 没有缓存，直接下载保存（电脑端或新图片）
             byte[] imageData = imageDownloader.downloadImage(imageUrl);
@@ -232,26 +309,30 @@ public class CommandHandler {
             
             String extension = imageDownloader.extractExtension(imageUrl);
             String fileName = "stolen_" + event.getUserId();
-            savedFile = memeManager.saveMeme(imageData, "旮给木表情包", fileName, extension);
+            savedFile = memeManager.saveMemeToCategory(imageData, fileName, extension, category);
         }
 
         if (savedFile != null) {
-            apiClient.sendText(session, "group", event.getGroupId(), 
-                "偷图成功！");
-            log.info("偷图成功: {} -> {}", imageUrl, savedFile.getAbsolutePath());
+            if (isNewCategory) {
+                apiClient.sendText(session, "group", event.getGroupId(), 
+                    "创建分类 [" + category + "] 成功！\n保存成功！");
+            } else {
+                apiClient.sendText(session, "group", event.getGroupId(), "偷图成功！");
+            }
+            log.info("偷图成功: {} -> {} (分类: {})", imageUrl, savedFile.getAbsolutePath(), category);
         } else {
             apiClient.sendText(session, "group", event.getGroupId(), "保存表情包失败，请重试");
         }
     }
     
     /**
-     * 根据用户ID在temp目录中查找最新的图片文件
-     * @param userId 用户ID
+     * 根据消息ID在temp目录中查找对应的缓存图片文件
+     * @param messageId 消息ID
      * @return 文件路径，如果没找到返回 null
      */
-    private String findTempFileByUserId(Long userId) {
+    private String findTempFileByMessageId(Integer messageId) {
         try {
-            java.io.File tempDir = new java.io.File("src/main/java/com/bot/jone/ioutils/images/temp");
+            java.io.File tempDir = new java.io.File(imagesConfig.getTempDir());
             if (!tempDir.exists() || !tempDir.isDirectory()) {
                 return null;
             }
@@ -261,22 +342,14 @@ public class CommandHandler {
                 return null;
             }
             
-            // 查找包含该userId的最新文件
-            java.io.File latestFile = null;
-            long latestTime = 0;
+            // 精确匹配文件名中的 message_id 前缀
+            String prefix = "auto_msg_" + messageId + "_";
             
             for (java.io.File file : files) {
-                if (file.isFile() && file.getName().contains("auto_" + userId)) {
-                    long fileTime = file.lastModified();
-                    if (fileTime > latestTime) {
-                        latestTime = fileTime;
-                        latestFile = file;
-                    }
+                if (file.isFile() && file.getName().startsWith(prefix)) {
+                    log.info("找到temp缓存文件: {} (对应 message_id={})", file.getName(), messageId);
+                    return file.getAbsolutePath();
                 }
-            }
-            
-            if (latestFile != null) {
-                return latestFile.getAbsolutePath();
             }
         } catch (Exception e) {
             log.error("查找temp文件异常", e);

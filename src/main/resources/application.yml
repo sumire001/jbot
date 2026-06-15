@@ -11,6 +11,9 @@ bot:
   admin:
     qq-list:
       - 1948259961
+  # 图片存储配置
+  images:
+    root-dir: ./data/images  # 图片根目录，默认 ./data/images（相对于工作目录）
   # Temp目录清理配置
   temp:
     retention-days: 7  # 文件保留天数（常见配置：3/7/14）

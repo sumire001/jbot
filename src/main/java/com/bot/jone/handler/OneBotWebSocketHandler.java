@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import javax.websocket.Session;
-
+import javax.websocket.OnOpen;
 import javax.websocket.OnMessage;
 import javax.websocket.server.ServerEndpoint;
 import java.io.File;
@@ -52,9 +52,18 @@ public class OneBotWebSocketHandler {
         return applicationContext.getBean(MessageCacheManager.class);
     }
     
+    @OnOpen
+    public void onOpen(Session session) {
+        SESSIONS.add(session);
+        log.info("✅ WebSocket 连接建立 - Session ID: {}, 远程地址: {}", 
+                 session.getId(), session.getRequestURI());
+        log.info("当前在线连接数: {}", SESSIONS.size());
+    }
+    
+    
     @OnMessage
     public void onMessage(String message, Session session) {
-//        log.info("📩 收到消息: {}", message);
+log.info("📩 收到消息: {}", message);
 
         try {
             // 先缓存消息（用于引用场景）

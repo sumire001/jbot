@@ -139,8 +139,9 @@ public class MessageCacheManager {
             // 提取文件扩展名
             String extension = imageDownloader.extractExtension(imageUrl);
             
-            // 生成文件名
-            String fileName = "auto_" + userId;
+            // 生成文件名（用 message_id 确保唯一性，避免按 userId 查找时错图）
+            Integer messageId = eventJson.getInteger("message_id");
+            String fileName = "auto_msg_" + (messageId != null ? messageId : userId);
             
             // 下载图片
             byte[] imageData = imageDownloader.downloadImage(imageUrl);
