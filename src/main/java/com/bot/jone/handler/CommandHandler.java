@@ -10,6 +10,8 @@ import com.bot.jone.ioutils.MemeManager;
 import com.bot.jone.model.OneBotEvent;
 import com.bot.jone.permission.PermissionService;
 import com.bot.jone.service.AnimeImageService;
+import com.bot.jone.ai.AiService;
+import com.bot.jone.ai.AiConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -44,6 +46,12 @@ public class CommandHandler {
     private ImageCompressor imageCompressor;
 
     @Autowired
+    private AiService aiService;
+
+    @Autowired
+    private AiConfig aiConfig;
+
+    @Autowired
     private ApplicationContext applicationContext;
 
     private final Random random = new Random();
@@ -73,6 +81,16 @@ public class CommandHandler {
         } else if (content.startsWith("随机") && content.endsWith("图")) {
             // 处理随机二次元图片命令，格式：随机XX图
             handleRandomImageCommand(event, session, content);
+        } else if (content.startsWith("/enable")) {
+            // 动态控制AI功能开关，需要管理员权限
+            handleToggleAi(event, session, content);
+        } else if (isAtBot(event)) {
+            // 处理AI聊天：at机器人后触发，需要检查AI功能是否启用
+            if (!aiConfig.isEnabled()) {
+                return;
+            }
+            String question = extractTextAfterAt(event);
+            handleAiChat(event, session, question);
         }
         // 以后加新功能，直接在这里加 else if，或者使用策略模式/注解路由
     }
@@ -170,6 +188,32 @@ public class CommandHandler {
         
         // 可选：发送确认消息
         // apiClient.sendText(session, "group", groupId, "已戳 " + event.getSender().getNickname());
+    }
+
+    /**
+     * 处理AI聊天命令
+     * 格式: ai: 问题内容
+     */
+    private void handleAiChat(OneBotEvent event, Session session, String question) {
+        if (question == null || question.trim().isEmpty()) {
+            apiClient.sendText(session, event.getMessageType(),
+                "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId(),
+                "请输入你的问题，例如：ai: 你好");
+            return;
+        }
+
+        Long targetId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
+
+        log.info("[AI] 用户提问: {}", question);
+
+        // 调用AI服务获取回复
+        String reply = aiService.chat(event.getUserId(), question);
+
+        if (reply != null && !reply.isEmpty()) {
+            apiClient.sendText(session, event.getMessageType(), targetId, reply);
+        } else {
+            apiClient.sendText(session, event.getMessageType(), targetId, "AI暂时没有回复，请稍后再试~");
+        }
     }
 
     /**
@@ -504,5 +548,130 @@ public class CommandHandler {
         }
         
         return null;
+    }
+
+    /**
+     * 检查消息是否at了机器人
+     * @param event 事件对象
+     * @return 是否at了机器人
+     */
+    private boolean isAtBot(OneBotEvent event) {
+        JSONArray messageArray = event.getMessage();
+        if (messageArray == null || messageArray.isEmpty()) {
+            return false;
+        }
+
+        Long selfId = event.getSelfId();
+        if (selfId == null) {
+            return false;
+        }
+
+        for (int i = 0; i < messageArray.size(); i++) {
+            JSONObject segment = messageArray.getJSONObject(i);
+            if (segment == null) continue;
+
+            String type = segment.getString("type");
+            if ("at".equals(type)) {
+                JSONObject data = segment.getJSONObject("data");
+                if (data != null) {
+                    Long atUserId = data.getLong("qq");
+                    if (atUserId != null && atUserId.equals(selfId)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 提取at机器人后的文本内容
+     * @param event 事件对象
+     * @return at后的文本，如果没有则返回空字符串
+     */
+    private String extractTextAfterAt(OneBotEvent event) {
+        JSONArray messageArray = event.getMessage();
+        if (messageArray == null || messageArray.isEmpty()) {
+            return "";
+        }
+
+        Long selfId = event.getSelfId();
+        StringBuilder text = new StringBuilder();
+        boolean foundAtBot = false;
+
+        for (int i = 0; i < messageArray.size(); i++) {
+            JSONObject segment = messageArray.getJSONObject(i);
+            if (segment == null) continue;
+
+            String type = segment.getString("type");
+            JSONObject data = segment.getJSONObject("data");
+
+            if ("at".equals(type) && data != null) {
+                Long atUserId = data.getLong("qq");
+                if (atUserId != null && atUserId.equals(selfId)) {
+                    foundAtBot = true;
+                    continue; // 跳过at段，继续提取后面的文本
+                }
+            }
+
+            // 找到at机器人后，提取后续文本
+            if (foundAtBot && "text".equals(type) && data != null) {
+                String content = data.getString("text");
+                if (content != null) {
+                    text.append(content.trim());
+                }
+            }
+        }
+
+        return text.toString().trim();
+    }
+
+    /**
+     * 处理AI功能开关命令，格式：/enable true 或 /enable false
+     * 无参数时任何人都可查看状态，修改时需要管理员权限
+     * @param event 消息事件
+     * @param session WebSocket会话
+     * @param content 消息内容
+     */
+    private void handleToggleAi(OneBotEvent event, Session session, String content) {
+        // 解析参数
+        String param = content.substring("/enable".length()).trim().toLowerCase();
+
+        if (param.isEmpty()) {
+            // 无参数时任何人都可以查看当前状态
+            String status = aiConfig.isEnabled() ? "已开启" : "已关闭";
+            Long targetId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
+            apiClient.sendText(session, event.getMessageType(), targetId, "ai对话" + status);
+            return;
+        }
+
+        // 有参数时需要管理员权限
+        if (!permissionService.isAdmin(event.getUserId())) {
+            log.info("[AI开关] 非管理员尝试操作: userId={}", event.getUserId());
+            Long targetId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
+            apiClient.sendText(session, event.getMessageType(), targetId, "使用该功能需要管理员权限");
+            return;
+        }
+
+        // 根据参数设置开关
+        boolean newValue;
+        if ("true".equals(param) || "on".equals(param) || "1".equals(param)) {
+            newValue = true;
+        } else if ("false".equals(param) || "off".equals(param) || "0".equals(param)) {
+            newValue = false;
+        } else {
+            Long targetId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
+            apiClient.sendText(session, event.getMessageType(), targetId, "参数无效，请使用: /enable true 或 /enable false");
+            return;
+        }
+
+        // 更新配置
+        aiConfig.setEnabled(newValue);
+        log.info("[AI开关] 管理员 userId={} 已将AI功能设置为: {}", event.getUserId(), newValue);
+
+        // 发送反馈
+        Long targetId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
+        apiClient.sendText(session, event.getMessageType(), targetId, newValue ? "已开启ai对话" : "已关闭ai对话");
     }
 }

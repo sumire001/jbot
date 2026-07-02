@@ -63,7 +63,7 @@ public class OneBotWebSocketHandler {
     
     @OnMessage
     public void onMessage(String message, Session session) {
-log.info("📩 收到消息: {}", message);
+// log.info("📩 收到消息: {}", message);
 
         try {
             // 先缓存消息（用于引用场景）

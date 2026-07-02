@@ -11,6 +11,14 @@ bot:
   admin:
     qq-list:
       - 1948259961
+  # AI聊天配置
+  ai:
+    enabled: false  # 是否启用AI功能
+    api-key: ${ALIYUN_API_KEY}
+    api-url: https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions  # 阿里云百练
+    model: qwen-plus
+    max-tokens: 1024  # 最大回复Token数
+    temperature: 0.7  # 生成随机性（0-1，越高越随机）
   # 图片存储配置
   images:
     root-dir: ./data/images  # 图片根目录，默认 ./data/images（相对于工作目录）
