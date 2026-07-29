@@ -33,3 +33,16 @@ build/
 .vscode/
 /data/
 /logs/
+/.workbuddy/
+
+### 运行时外部配置（含真实 hcti api-user/api-key，切勿提交） ###
+/config/
+
+### 本地画廊调试产物（体积巨大，纯本地生成） ###
+/gallery_output/
+
+### 操作系统 / 编辑器垃圾文件 ###
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db

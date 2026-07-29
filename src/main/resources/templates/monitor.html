@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
+    <title>实时监控 - ichikaBot</title>
+    <link rel="stylesheet" href="/css/theme.css">
+    <style>
+        .monitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        #memoryChart {
+            width: 100%;
+            height: 250px;
+            border-radius: 8px;
+        }
+
+        .jvm-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .jvm-table th, .jvm-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .jvm-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .jvm-table td {
+            color: var(--text-primary);
+            font-size: 13px;
+            word-break: break-all;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: calc(var(--navbar-height) + 16px);
+            right: 16px;
+            z-index: 200;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 1200px) {
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .metrics-grid { grid-template-columns: 1fr 1fr; }
+            .metric-value { font-size: 20px; }
+            #memoryChart { height: 200px; }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <img src="/favicon.png?v=1" class="sidebar-logo" alt="logo">
+            <span class="sidebar-title">ichikaBot</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item"><span class="nav-item-icon">📊</span><span>概览</span></a>
+            <a href="/monitor-page" class="nav-item active"><span class="nav-item-icon">📈</span><span>实时监控</span></a>
+            <a href="/config-page" class="nav-item"><span class="nav-item-icon">⚙️</span><span>配置管理</span></a>
+            <a href="/memes-page" class="nav-item"><span class="nav-item-icon">🖼️</span><span>表情包</span></a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()">←</button>
+        </div>
+    </aside>
+
+    <div id="sidebar-overlay" onclick="ThemeManager.closeSidebar()"></div>
+
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()">☰</button>
+            <img src="/favicon.png?v=1" class="topbar-logo" alt="logo">
+            <span class="topbar-title">ichikaBot</span>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-secondary btn-sm" onclick="handleLogout()">登出</button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="page-content">
+            <div class="monitor-header">
+                <h1 style="font-size: 28px; font-weight: 700; color: var(--text-primary);">实时监控</h1>
+                <button class="btn btn-secondary btn-sm" onclick="triggerGC()">🗑️ 触发 GC</button>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">堆内存使用</div>
+                    <div class="metric-value" id="heap-used">-- MB</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">CPU 使用率</div>
+                    <div class="metric-value" id="cpu-usage">-- %</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">活跃线程</div>
+                    <div class="metric-value" id="threads">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">GC 次数</div>
+                    <div class="metric-value" id="gc-count">--</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">内存使用趋势</div>
+                <canvas id="memoryChart"></canvas>
+            </div>
+
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden;">
+                <table class="jvm-table">
+                    <thead><tr><th>属性</th><th>值</th></tr></thead>
+                    <tbody id="jvm-info"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item"><span class="nav-icon">📊</span><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item active"><span class="nav-icon">📈</span><span>监控</span></a>
+            <a href="/config-page" class="bottom-nav-item"><span class="nav-icon">⚙️</span><span>配置</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><span class="nav-icon">🖼️</span><span>表情</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js"></script>
+    <script>
+        const heapHistory = [];
+
+        function showToast(msg) {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        async function loadMonitor() {
+            try {
+                const res = await fetch('/monitor/memory');
+                const json = await res.json();
+                if (json.success) {
+                    const d = json.data;
+                    document.getElementById('heap-used').textContent = d.heapUsedMB + ' MB';
+                    heapHistory.push(d.heapUsedMB);
+                    if (heapHistory.length > 60) heapHistory.shift();
+                    drawChart();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadJvmInfo() {
+            try {
+                const res = await fetch('/monitor/jvm');
+                const json = await res.json();
+                if (json.success) {
+                    const cpuVal = json.cpu?.processCpuLoad;
+                    document.getElementById('cpu-usage').textContent = (cpuVal >= 0 ? cpuVal.toFixed(1) : '--') + ' %';
+                    document.getElementById('threads').textContent = json.threads?.threadCount || '--';
+                    document.getElementById('gc-count').textContent = json.gc?.gcCount || '--';
+                    const tbody = document.getElementById('jvm-info');
+                    tbody.innerHTML = '';
+                    for (const [cat, data] of Object.entries(json)) {
+                        if (cat === 'success') continue;
+                        for (const [k, v] of Object.entries(data)) {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td>${cat}.${k}</td><td>${v}</td>`;
+                            tbody.appendChild(tr);
+                        }
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function triggerGC() {
+            if (!confirm('确定要触发GC吗？')) return;
+            try {
+                showToast('正在触发GC...');
+                const res = await fetch('/monitor/gc', { method: 'POST' });
+                const json = await res.json();
+                showToast(json.success ? 'GC完成: ' + json.currentMemory.heapUsedMB + 'MB' : 'GC失败');
+                loadMonitor();
+            } catch (e) { showToast('请求失败'); }
+        }
+
+        function drawChart() {
+            const canvas = document.getElementById('memoryChart');
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = canvas.offsetWidth * dpr;
+            canvas.height = canvas.offsetHeight * dpr;
+            ctx.scale(dpr, dpr);
+            const w = canvas.offsetWidth, h = canvas.offsetHeight;
+
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = isDark ? '#0a0e1a' : '#f5f7fa';
+            ctx.fillRect(0, 0, w, h);
+
+            if (heapHistory.length < 2) return;
+
+            const padding = 30;
+            const maxVal = Math.max(...heapHistory, 100);
+            const chartW = w - padding * 2;
+            const chartH = h - padding * 2;
+
+            ctx.strokeStyle = isDark ? '#2a3344' : '#e1e5eb';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + chartH * (i / 4);
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(w - padding, y);
+                ctx.stroke();
+            }
+
+            const gradient = ctx.createLinearGradient(0, padding, 0, h - padding);
+            gradient.addColorStop(0, 'rgba(0, 217, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(0, 217, 255, 0.0)');
+
+            ctx.beginPath();
+            ctx.moveTo(padding, h - padding);
+            heapHistory.forEach((v, i) => {
+                const x = padding + (chartW / (heapHistory.length - 1)) * i;
+                const y = h - padding - (v / maxVal) * chartH;
+                ctx.lineTo(x, y);
+            });
+            ctx.lineTo(w - padding, h - padding);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            ctx.beginPath();
+            heapHistory.forEach((v, i) => {
+                const x = padding + (chartW / (heapHistory.length - 1)) * i;
+                const y = h - padding - (v / maxVal) * chartH;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.strokeStyle = '#00d9ff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = isDark ? '#8b95a8' : '#5a6478';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + chartH * (i / 4);
+                ctx.fillText(Math.round(maxVal * (1 - i / 4)) + 'MB', padding - 5, y + 4);
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch (e) {}
+            window.location.href = '/login';
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const json = await res.json();
+                if (!json.authenticated) window.location.href = '/login';
+            } catch (e) {}
+        }
+
+        checkAuth();
+        loadMonitor();
+        loadJvmInfo();
+        setInterval(loadMonitor, 3000);
+        window.addEventListener('resize', drawChart);
+    </script>
+</body>
+</html>

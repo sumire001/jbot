@@ -1,0 +1,515 @@
+package com.bot.jone.controller;
+
+import com.bot.jone.ai.AiConfig;
+import com.bot.jone.ai.PromptManager;
+import com.bot.jone.ai.LongTermMemoryManager;
+import com.bot.jone.ai.model.UserMemory;
+import com.bot.jone.config.CommandConfig;
+import com.bot.jone.config.ConfigHotReloadManager;
+import com.bot.jone.config.GalleryConfig;
+import com.bot.jone.config.ImagesConfig;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * 配置热更新API
+ */
+@RestController
+@RequestMapping("/api/config")
+@Slf4j
+public class ConfigController {
+
+    @Autowired
+    private ImagesConfig imagesConfig;
+
+    @Autowired
+    private AiConfig aiConfig;
+
+    @Autowired
+    private PromptManager promptManager;
+
+    @Autowired
+    private ConfigHotReloadManager hotReloadManager;
+
+    @Autowired
+    private LongTermMemoryManager longTermMemoryManager;
+
+    @Autowired
+    private CommandConfig commandConfig;
+
+    @Autowired
+    private GalleryConfig galleryConfig;
+
+    @Value("${bot.cache.message-max-size:100}")
+    private int messageMaxSize;
+
+    /**
+     * 获取所有配置
+     */
+    @GetMapping("/all")
+    public Map<String, Object> getAllConfig() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+
+        // 图片下载配置
+        Map<String, Object> download = new HashMap<>();
+        download.put("maxSizeMb", imagesConfig.getDownload().getMaxSizeMb());
+        result.put("imageDownload", download);
+
+        // 图片压缩配置
+        Map<String, Object> compression = new HashMap<>();
+        compression.put("sizeThresholdMb", imagesConfig.getCompression().getSizeThresholdMb());
+        compression.put("maxDimension", imagesConfig.getCompression().getMaxDimension());
+        compression.put("jpegQuality", imagesConfig.getCompression().getJpegQuality());
+        compression.put("skipGif", imagesConfig.getCompression().isSkipGif());
+        result.put("imageCompression", compression);
+
+        // AI配置
+        Map<String, Object> ai = new HashMap<>();
+        ai.put("enabled", aiConfig.isEnabled());
+        ai.put("apiKey", aiConfig.getApiKey());
+        ai.put("apiUrl", aiConfig.getApiUrl());
+        ai.put("model", aiConfig.getModel());
+        ai.put("maxTokens", aiConfig.getMaxTokens());
+        ai.put("temperature", aiConfig.getTemperature());
+        ai.put("timeoutSeconds", aiConfig.getTimeoutSeconds());
+        ai.put("historyMaxContext", aiConfig.getHistoryMaxContext());
+        // 系统提示词：优先用配置中的，否则用默认值
+        String currentPrompt = aiConfig.getSystemPrompt();
+        if (currentPrompt == null || currentPrompt.trim().isEmpty()) {
+            currentPrompt = promptManager.getDefaultSystemPrompt();
+        }
+        ai.put("systemPrompt", currentPrompt);
+        result.put("ai", ai);
+
+        // 画廊配置
+        Map<String, Object> gallery = new HashMap<>();
+        gallery.put("enabled", galleryConfig.isEnabled());
+        gallery.put("apiUrl", galleryConfig.getApiUrl());
+        gallery.put("apiUser", galleryConfig.getApiUser());
+        gallery.put("apiKey", galleryConfig.getApiKey());
+        gallery.put("cols", galleryConfig.getCols());
+        gallery.put("rows", galleryConfig.getRows());
+        gallery.put("width", galleryConfig.getWidth());
+        gallery.put("scale", galleryConfig.getScale());
+        gallery.put("thumbDim", galleryConfig.getThumbDim());
+        result.put("gallery", gallery);
+
+        // 命令配置（合并所有命令，确保 WebUI 显示完整列表）
+        Map<String, Object> command = new HashMap<>();
+        command.put("prefix", commandConfig.getPrefix());
+        command.put("aliases", commandConfig.getFullCommandView());
+        result.put("command", command);
+
+        // 缓存配置
+        Map<String, Object> cache = new HashMap<>();
+        cache.put("messageMaxSize", messageMaxSize);
+        result.put("cache", cache);
+
+        return result;
+    }
+
+    /**
+     * 获取命令配置（前缀 + 别名列表）
+     */
+    @GetMapping("/command")
+    public Map<String, Object> getCommandConfig() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("prefix", commandConfig.getPrefix());
+        result.put("aliases", commandConfig.getFullCommandView());
+        return result;
+    }
+
+    /**
+     * 更新命令配置
+     * Body: { "prefix": "/", "aliases": {"偷一下": "steal"} }
+     */
+    @PostMapping("/command")
+    public Map<String, Object> updateCommandConfig(@RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Object prefixObj = body == null ? null : body.get("prefix");
+            String prefix = prefixObj == null ? "" : String.valueOf(prefixObj).trim();
+            if (prefix.isEmpty()) {
+                result.put("success", false);
+                result.put("message", "命令前缀不能为空");
+                return result;
+            }
+            if (prefix.length() > 4) {
+                result.put("success", false);
+                result.put("message", "命令前缀长度不能超过4个字符");
+                return result;
+            }
+            Map<String, String> cleanedAliases = new LinkedHashMap<>();
+            Object aliasesObj = body.get("aliases");
+            if (aliasesObj instanceof Map) {
+                for (Map.Entry<?, ?> entry : ((Map<?, ?>) aliasesObj).entrySet()) {
+                    String key = entry.getKey() == null ? "" : String.valueOf(entry.getKey()).trim();
+                    if (key.isEmpty()) continue;
+                    String value = entry.getValue() == null ? "" : String.valueOf(entry.getValue()).trim();
+                    // 只持久化非空别名，空别名依赖 @PostConstruct 默认值填充
+                    if (!value.isEmpty()) {
+                        cleanedAliases.put(key, value);
+                    }
+                }
+            }
+            hotReloadManager.updateCommandConfig(prefix, cleanedAliases);
+            result.put("success", true);
+            result.put("message", "命令配置已更新并持久化");
+        } catch (Exception e) {
+            log.error("更新命令配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新图片下载配置
+     */
+    @PostMapping("/image-download")
+    public Map<String, Object> updateImageDownload(@RequestParam int maxSizeMb) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if (maxSizeMb < 1 || maxSizeMb > 100) {
+                result.put("success", false);
+                result.put("message", "大小必须在1-100MB之间");
+                return result;
+            }
+            hotReloadManager.updateImageDownloadConfig(maxSizeMb);
+            result.put("success", true);
+            result.put("message", "配置已更新");
+        } catch (Exception e) {
+            log.error("更新配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新图片压缩配置
+     */
+    @PostMapping("/image-compression")
+    public Map<String, Object> updateImageCompression(
+            @RequestParam int sizeThresholdMb,
+            @RequestParam int maxDimension,
+            @RequestParam float jpegQuality,
+            @RequestParam boolean skipGif) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if (sizeThresholdMb < 1 || sizeThresholdMb > 10) {
+                result.put("success", false);
+                result.put("message", "压缩阈值必须在1-10MB之间");
+                return result;
+            }
+            if (maxDimension < 800 || maxDimension > 4000) {
+                result.put("success", false);
+                result.put("message", "分辨率必须在800-4000之间");
+                return result;
+            }
+            if (jpegQuality < 0.1 || jpegQuality > 1.0) {
+                result.put("success", false);
+                result.put("message", "JPEG质量必须在0.1-1.0之间");
+                return result;
+            }
+            hotReloadManager.updateImageCompressionConfig(sizeThresholdMb, maxDimension, jpegQuality, skipGif);
+            result.put("success", true);
+            result.put("message", "配置已更新");
+        } catch (Exception e) {
+            log.error("更新配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新AI配置
+     * @param apiKey API Key，留空则不修改
+     */
+    @PostMapping("/ai")
+    public Map<String, Object> updateAi(
+            @RequestParam boolean enabled,
+            @RequestParam(required = false) String apiKey,
+            @RequestParam(required = false) String apiUrl,
+            @RequestParam String model,
+            @RequestParam int maxTokens,
+            @RequestParam double temperature,
+            @RequestParam int timeoutSeconds,
+            @RequestParam int historyMaxContext) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if (maxTokens < 100 || maxTokens > 8000) {
+                result.put("success", false);
+                result.put("message", "maxTokens必须在100-8000之间");
+                return result;
+            }
+            if (temperature < 0 || temperature > 2) {
+                result.put("success", false);
+                result.put("message", "temperature必须在0-2之间");
+                return result;
+            }
+            if (timeoutSeconds < 5 || timeoutSeconds > 300) {
+                result.put("success", false);
+                result.put("message", "timeout必须在5-300秒之间");
+                return result;
+            }
+            if (historyMaxContext < 1 || historyMaxContext > 50) {
+                result.put("success", false);
+                result.put("message", "历史对话轮数必须在1-50之间");
+                return result;
+            }
+            hotReloadManager.updateAiConfig(enabled, apiKey, apiUrl, model, maxTokens, temperature, timeoutSeconds, historyMaxContext);
+            result.put("success", true);
+            result.put("message", "配置已更新并持久化");
+        } catch (Exception e) {
+            log.error("更新配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新画廊配置
+     * @param apiUrl / apiUser / apiKey 留空则不修改（避免误清空）
+     */
+    @PostMapping("/gallery")
+    public Map<String, Object> updateGallery(
+            @RequestParam boolean enabled,
+            @RequestParam(required = false) String apiUrl,
+            @RequestParam(required = false) String apiUser,
+            @RequestParam(required = false) String apiKey,
+            @RequestParam int cols,
+            @RequestParam int rows,
+            @RequestParam int width,
+            @RequestParam int scale,
+            @RequestParam int thumbDim) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if (cols < 1 || cols > 20) {
+                result.put("success", false);
+                result.put("message", "列数必须在1-20之间");
+                return result;
+            }
+            if (rows < 1 || rows > 30) {
+                result.put("success", false);
+                result.put("message", "行数必须在1-30之间");
+                return result;
+            }
+            if (width < 300 || width > 2000) {
+                result.put("success", false);
+                result.put("message", "页宽必须在300-2000之间");
+                return result;
+            }
+            if (scale < 1 || scale > 3) {
+                result.put("success", false);
+                result.put("message", "清晰度必须在1-3之间");
+                return result;
+            }
+            if (thumbDim < 0 || thumbDim > 2000) {
+                result.put("success", false);
+                result.put("message", "缩略尺寸必须在0-2000之间");
+                return result;
+            }
+            hotReloadManager.updateGalleryConfig(enabled, apiUrl, apiUser, apiKey, cols, rows, width, scale, thumbDim);
+            result.put("success", true);
+            result.put("message", "画廊配置已更新并持久化");
+        } catch (Exception e) {
+            log.error("更新画廊配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 获取默认系统提示词
+     */
+    @GetMapping("/ai-default-prompt")
+    public Map<String, Object> getDefaultPrompt() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("systemPrompt", promptManager.getDefaultSystemPrompt());
+        return result;
+    }
+
+    /**
+     * 更新AI系统提示词
+     */
+    @PostMapping("/ai-system-prompt")
+    public Map<String, Object> updateAiSystemPrompt(@RequestBody Map<String, String> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String systemPrompt = body != null ? body.get("systemPrompt") : null;
+            if (systemPrompt == null || systemPrompt.trim().isEmpty()) {
+                result.put("success", false);
+                result.put("message", "系统提示词不能为空");
+                return result;
+            }
+            if (systemPrompt.length() > 10000) {
+                result.put("success", false);
+                result.put("message", "系统提示词长度不能超过10000字符");
+                return result;
+            }
+            hotReloadManager.updateAiSystemPrompt(systemPrompt);
+            result.put("success", true);
+            result.put("message", "系统提示词已更新并持久化");
+        } catch (Exception e) {
+            log.error("更新系统提示词失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新消息缓存大小
+     */
+    @PostMapping("/cache")
+    public Map<String, Object> updateCache(@RequestParam int messageMaxSize) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if (messageMaxSize < 10 || messageMaxSize > 1000) {
+                result.put("success", false);
+                result.put("message", "缓存大小必须在10-1000之间");
+                return result;
+            }
+            hotReloadManager.updateCacheConfig(messageMaxSize);
+            result.put("success", true);
+            result.put("message", "配置已更新（需要重启生效）");
+        } catch (Exception e) {
+            log.error("更新配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 获取所有用户画像列表
+     */
+    @GetMapping("/long-term-memory/users")
+    public Map<String, Object> getAllUserMemories() {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> users = longTermMemoryManager.getUserMemoryMap().entrySet().stream()
+                .map(entry -> {
+                    Map<String, Object> user = new HashMap<>();
+                    UserMemory m = entry.getValue();
+                    user.put("qq", m.getQq());
+                    user.put("nickname", m.getNickname());
+                    user.put("traits", m.getTraits());
+                    user.put("lastSeen", m.getLastSeen());
+                    return user;
+                })
+                .collect(Collectors.toList());
+            result.put("success", true);
+            result.put("users", users);
+        } catch (Exception e) {
+            log.error("获取用户画像失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 获取指定用户画像
+     */
+    @GetMapping("/long-term-memory/users/{qq}")
+    public Map<String, Object> getUserMemory(@PathVariable Long qq) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            UserMemory user = longTermMemoryManager.getUserMemory(qq);
+            if (user == null) {
+                result.put("success", false);
+                result.put("message", "未找到用户画像");
+                return result;
+            }
+            result.put("success", true);
+            result.put("qq", user.getQq());
+            result.put("nickname", user.getNickname());
+            result.put("traits", user.getTraits());
+            result.put("groupNicknames", user.getGroupNicknames());
+            result.put("lastSeen", user.getLastSeen());
+        } catch (Exception e) {
+            log.error("获取用户画像失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新用户画像
+     */
+    @PostMapping("/long-term-memory/users/{qq}")
+    public Map<String, Object> updateUserMemory(@PathVariable Long qq, @RequestBody Map<String, String> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String nickname = body.get("nickname");
+            String traits = body.get("traits");
+            if (nickname == null && traits == null) {
+                result.put("success", false);
+                result.put("message", "至少需要提供 nickname 或 traits");
+                return result;
+            }
+            longTermMemoryManager.updateUserMemory(qq, nickname, traits);
+            longTermMemoryManager.flushDirty();
+            result.put("success", true);
+            result.put("message", "用户画像已更新");
+        } catch (Exception e) {
+            log.error("更新用户画像失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 删除用户画像
+     */
+    @DeleteMapping("/long-term-memory/users/{qq}")
+    public Map<String, Object> deleteUserMemory(@PathVariable Long qq) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            longTermMemoryManager.clearUserMemory(qq);
+            result.put("success", true);
+            result.put("message", "用户画像已删除");
+        } catch (Exception e) {
+            log.error("删除用户画像失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 清空全部长期记忆
+     */
+    @DeleteMapping("/long-term-memory/all")
+    public Map<String, Object> clearAllMemory() {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            longTermMemoryManager.clearAllMemory();
+            result.put("success", true);
+            result.put("message", "全部记忆已清空");
+        } catch (Exception e) {
+            log.error("清空记忆失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+}

@@ -21,15 +21,6 @@ public class ImageCompressor {
     @Autowired
     private ImagesConfig imagesConfig;
 
-    // 超过此大小（字节）的图片才会被压缩
-    private static final long SIZE_THRESHOLD = 1024 * 1024; // 1MB
-
-    // 超过此分辨率的图片才会被缩小
-    private static final int MAX_DIMENSION = 1600;
-
-    // JPEG压缩质量（0.0-1.0）
-    private static final float JPEG_QUALITY = 0.75f;
-
     /**
      * 压缩图片（如果需要）
      * @param imagePath 原图路径
@@ -51,20 +42,22 @@ public class ImageCompressor {
         String extension = getExtension(fileName).toLowerCase();
 
         // GIF不压缩（可能是动画）
-        if ("gif".equals(extension)) {
+        if ("gif".equals(extension) && imagesConfig.getCompression().isSkipGif()) {
             log.info("[图片压缩] 跳过GIF文件（可能是动画）: {} ({}KB)",
                 fileName, fileSize / 1024);
             return imagePath;
         }
 
         // 检查是否需要压缩
-        if (fileSize < SIZE_THRESHOLD) {
+        long sizeThreshold = imagesConfig.getCompression().getSizeThresholdBytes();
+        int maxDimension = imagesConfig.getCompression().getMaxDimension();
+        if (fileSize < sizeThreshold) {
             // 小图片，检查分辨率
             try {
                 BufferedImage img = ImageIO.read(sourceFile);
                 if (img != null) {
                     int maxDim = Math.max(img.getWidth(), img.getHeight());
-                    if (maxDim < MAX_DIMENSION) {
+                    if (maxDim < maxDimension) {
                         log.info("[图片压缩] 无需压缩: {} ({}KB, {}x{})",
                             fileName, fileSize / 1024, img.getWidth(), img.getHeight());
                         return imagePath;
@@ -96,11 +89,12 @@ public class ImageCompressor {
             int originalWidth = originalImage.getWidth();
             int originalHeight = originalImage.getHeight();
             int maxDim = Math.max(originalWidth, originalHeight);
+            int configMaxDimension = imagesConfig.getCompression().getMaxDimension();
 
             // 计算缩放比例
             double scale = 1.0;
-            if (maxDim > MAX_DIMENSION) {
-                scale = (double) MAX_DIMENSION / maxDim;
+            if (maxDim > configMaxDimension) {
+                scale = (double) configMaxDimension / maxDim;
             }
 
             int newWidth = (int) (originalWidth * scale);
@@ -128,6 +122,10 @@ public class ImageCompressor {
                 g2d.dispose();
             }
 
+            // 释放原图内存
+            originalImage.flush();
+            originalImage = null;
+
             // 确保压缩输出目录存在
             File compressDir = new File(imagesConfig.getTempDir());
             if (!compressDir.exists()) {
@@ -152,7 +150,7 @@ public class ImageCompressor {
                 ImageWriter writer = writers.next();
                 ImageWriteParam param = writer.getDefaultWriteParam();
                 param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                param.setCompressionQuality(JPEG_QUALITY);
+                param.setCompressionQuality(imagesConfig.getCompression().getJpegQuality());
 
                 try (ImageOutputStream ios = ImageIO.createImageOutputStream(outputFile)) {
                     writer.setOutput(ios);
@@ -160,6 +158,10 @@ public class ImageCompressor {
                 }
                 writer.dispose();
             }
+
+            // 释放压缩后图片内存
+            resizedImage.flush();
+            resizedImage = null;
 
             long compressedSize = outputFile.length();
             long originalSize = sourceFile.length();
@@ -203,8 +205,10 @@ public class ImageCompressor {
             int maxDim = Math.max(originalWidth, originalHeight);
 
             // 检查是否需要压缩
-            boolean needResize = maxDim > MAX_DIMENSION;
-            boolean needQuality = imageData.length > SIZE_THRESHOLD;
+            int configMaxDimension = imagesConfig.getCompression().getMaxDimension();
+            long configSizeThreshold = imagesConfig.getCompression().getSizeThresholdBytes();
+            boolean needResize = maxDim > configMaxDimension;
+            boolean needQuality = imageData.length > configSizeThreshold;
 
             if (!needResize && !needQuality) {
                 // 小图不需要压缩，直接返回 null 让调用方存原图
@@ -219,7 +223,7 @@ public class ImageCompressor {
             int newHeight = originalHeight;
 
             if (needResize) {
-                scale = (double) MAX_DIMENSION / maxDim;
+                scale = (double) configMaxDimension / maxDim;
                 newWidth = (int) (originalWidth * scale);
                 newHeight = (int) (originalHeight * scale);
             }
@@ -246,6 +250,10 @@ public class ImageCompressor {
                 g2d.dispose();
             }
 
+            // 释放原图内存
+            originalImage.flush();
+            originalImage = null;
+
             // 确保目标目录存在
             File dir = new File(targetDir);
             if (!dir.exists()) {
@@ -265,7 +273,7 @@ public class ImageCompressor {
                 ImageWriter writer = writers.next();
                 ImageWriteParam param = writer.getDefaultWriteParam();
                 param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                param.setCompressionQuality(JPEG_QUALITY);
+                param.setCompressionQuality(imagesConfig.getCompression().getJpegQuality());
 
                 try (ImageOutputStream ios = ImageIO.createImageOutputStream(outputFile)) {
                     writer.setOutput(ios);
@@ -273,6 +281,10 @@ public class ImageCompressor {
                 }
                 writer.dispose();
             }
+
+            // 释放压缩后图片内存
+            outputImage.flush();
+            outputImage = null;
 
             long compressedSize = outputFile.length();
             double ratio = imageData.length > 0

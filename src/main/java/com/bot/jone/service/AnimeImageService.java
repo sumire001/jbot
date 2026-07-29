@@ -26,6 +26,8 @@ public class AnimeImageService {
      * @return 图片 URL，如果失败返回 null
      */
     public String searchImage(String keyword) {
+        HttpURLConnection conn = null;
+        BufferedReader reader = null;
         try {
             // 构建请求 URL
             String encodedKeyword = URLEncoder.encode(keyword, StandardCharsets.UTF_8);
@@ -35,20 +37,19 @@ public class AnimeImageService {
 
             // 发送请求
             URL url = new URL(requestUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(10000);
             conn.setReadTimeout(10000);
 
             // 读取响应
-            BufferedReader reader = new BufferedReader(
+            reader = new BufferedReader(
                 new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
             StringBuilder response = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
                 response.append(line);
             }
-            reader.close();
 
             String responseStr = response.toString();
             log.debug("API 响应内容: {}", responseStr);
@@ -80,6 +81,13 @@ public class AnimeImageService {
         } catch (Exception e) {
             log.error("调用二次元图片 API 失败", e);
             return null;
+        } finally {
+            try {
+                if (reader != null) reader.close();
+                if (conn != null) conn.disconnect();
+            } catch (Exception e) {
+                log.error("关闭资源失败", e);
+            }
         }
     }
 
@@ -89,6 +97,8 @@ public class AnimeImageService {
      * @return ImageResult 包含图片URL和附加信息，失败返回 null
      */
     public ImageResult searchImageWithInfo(String keyword) {
+        HttpURLConnection conn = null;
+        BufferedReader reader = null;
         try {
             String encodedKeyword = URLEncoder.encode(keyword, StandardCharsets.UTF_8);
             String requestUrl = apiUrl + "?tag=" + encodedKeyword + "&num=1";
@@ -96,7 +106,7 @@ public class AnimeImageService {
             log.info("[图片API] 请求URL: {}", requestUrl);
 
             URL url = new URL(requestUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setConnectTimeout(10000);
             conn.setReadTimeout(10000);
@@ -104,14 +114,13 @@ public class AnimeImageService {
             int responseCode = conn.getResponseCode();
             log.info("[图片API] HTTP响应码: {}", responseCode);
 
-            BufferedReader reader = new BufferedReader(
+            reader = new BufferedReader(
                 new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
             StringBuilder response = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
                 response.append(line);
             }
-            reader.close();
 
             String responseStr = response.toString();
             log.info("[图片API] 响应内容: {}", responseStr.length() > 300 ? responseStr.substring(0, 300) + "..." : responseStr);
@@ -146,6 +155,13 @@ public class AnimeImageService {
         } catch (Exception e) {
             log.error("[图片API] 调用失败", e);
             return null;
+        } finally {
+            try {
+                if (reader != null) reader.close();
+                if (conn != null) conn.disconnect();
+            } catch (Exception e) {
+                log.error("关闭资源失败", e);
+            }
         }
     }
 

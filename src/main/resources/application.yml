@@ -1,10 +1,20 @@
 server:
-  port: 9026
+  port: 3939
 
 spring:
   devtools:
     restart:
       enabled: false  # 禁用热重载，避免类加载器冲突
+  thymeleaf:
+    cache: false  # 开发环境关闭缓存
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+  servlet:
+    multipart:
+      max-file-size: 6MB       # 单个文件最大 6MB（业务上限 5MB + 余量）
+      max-request-size: 6MB    # 整个请求最大 6MB
 
 # Bot配置
 bot:
@@ -19,9 +29,34 @@ bot:
     model: qwen-plus
     max-tokens: 1024  # 最大回复Token数
     temperature: 0.7  # 生成随机性（0-1，越高越随机）
+    timeout-seconds: 60  # API请求超时时间（秒）
+    history-max-context: 10  # 短期记忆最大对话轮数（每轮含user+assistant两条消息）
+    long-term-memory:
+      enabled: true           # 是否启用长期记忆
+      memory-dir: ./data/memory  # 文件存储目录
+      flush-interval-minutes: 5  # 定时刷盘间隔（分钟）
+      max-members-per-group: 50  # 每群最多保留成员数
+      inactive-days-to-remove: 30  # 不活跃用户移除天数
+      summary-cooldown-minutes: 10  # 摘要冷却时间
+  # 命令配置
+  command:
+    prefix: "/"  # 命令前缀，所有命令必须以此开头
+    # 别名通过 WebUI 配置，不在此处硬编码默认值（避免 Spring Boot Map 合并导致重置）
   # 图片存储配置
   images:
     root-dir: ./data/images  # 图片根目录，默认 ./data/images（相对于工作目录）
+    # 图片下载配置
+    download:
+      max-size-mb: 10  # 单张图片最大下载大小（MB）
+    # 图片压缩配置
+    compression:
+      size-threshold-mb: 1  # 超过此大小的图片才会被压缩（MB）
+      max-dimension: 1600  # 最大分辨率（最长边像素数）
+      jpeg-quality: 0.75  # JPEG压缩质量（0.0-1.0）
+      skip-gif: true  # 是否跳过GIF文件（可能是动画）
+  # 消息缓存配置
+  cache:
+    message-max-size: 100  # 消息缓存最大数量
   # Temp目录清理配置
   temp:
     retention-days: 7  # 文件保留天数
@@ -34,3 +69,21 @@ bot:
   # 二次元图片API配置
   anime-api:
     url: https://api.lolicon.app/setu/v2  # Lolicon API 地址
+  # 词汇数据存储配置
+  vocabulary:
+    data-dir: ./data/vocabulary  # 词汇JSON文件存储目录
+
+# Spring Boot Actuator 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info,heapdump,threaddump  # 开放监控端点
+  endpoint:
+    health:
+      show-details: always  # 显示健康检查详情
+    metrics:
+      enabled: true
+  metrics:
+    tags:
+      application: j-one-bot

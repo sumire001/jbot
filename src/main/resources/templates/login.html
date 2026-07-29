@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
+    <title>登录 - ichikaBot</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #131826;
+            --bg-tertiary: #1c2333;
+            --border-color: #2a3344;
+            --text-primary: #e4e7ef;
+            --text-secondary: #8b95a8;
+            --accent-cyan: #00d9ff;
+            --accent-purple: #b14cff;
+            --accent-green: #00ff9d;
+            --accent-red: #ff4757;
+            --gradient-1: linear-gradient(135deg, #00d9ff 0%, #b14cff 100%);
+            --safe-area-bottom: env(safe-area-inset-bottom);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background:
+                radial-gradient(circle at 30% 20%, rgba(0, 217, 255, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 70% 80%, rgba(177, 76, 255, 0.12) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            position: relative;
+            z-index: 1;
+        }
+        .logo-section {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .logo-icon {
+            width: 64px; height: 64px;
+            border-radius: 16px;
+            margin: 0 auto 16px;
+            box-shadow: 0 0 30px rgba(0, 217, 255, 0.4);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .logo-icon-img {
+            width: 64px; height: 64px; border-radius: 16px; object-fit: cover;
+        }
+        .logo-title { font-size: 24px; font-weight: 700; }
+        .logo-subtitle { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 28px;
+            backdrop-filter: blur(20px);
+        }
+        .card-header { margin-bottom: 24px; }
+        .card-title { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+        .card-desc { font-size: 14px; color: var(--text-secondary); }
+        .form-group { margin-bottom: 20px; }
+        .form-label {
+            display: block; margin-bottom: 8px;
+            color: var(--text-secondary); font-size: 13px; font-weight: 500;
+        }
+        .form-input {
+            width: 100%; padding: 14px 16px;
+            background: var(--bg-tertiary); border: 1px solid var(--border-color);
+            border-radius: 10px; color: var(--text-primary); font-size: 16px;
+            transition: all 0.2s; min-height: 50px;
+        }
+        .form-input:focus {
+            outline: none; border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+        .form-input::placeholder { color: var(--text-secondary); }
+        .btn {
+            width: 100%; padding: 14px; border: none; border-radius: 10px;
+            cursor: pointer; font-size: 16px; font-weight: 600;
+            transition: all 0.2s; min-height: 50px;
+        }
+        .btn-primary {
+            background: var(--gradient-1); color: #fff;
+            box-shadow: 0 4px 16px rgba(0, 217, 255, 0.3);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0, 217, 255, 0.4); }
+        .btn-primary:active { transform: translateY(0); }
+        .alert {
+            padding: 12px 14px; border-radius: 8px; margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .alert-error {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid rgba(255, 71, 87, 0.3);
+            color: var(--accent-red);
+        }
+        .alert-success {
+            background: rgba(0, 255, 157, 0.1);
+            border: 1px solid rgba(0, 255, 157, 0.3);
+            color: var(--accent-green);
+        }
+        .loading {
+            display: inline-block; width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .footer {
+            text-align: center; margin-top: 20px;
+            font-size: 12px; color: var(--text-secondary);
+        }
+        .password-hint { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+
+        @media (max-width: 480px) {
+            .card { padding: 24px 20px; }
+            .logo-icon { width: 56px; height: 56px; font-size: 28px; }
+            .logo-title { font-size: 20px; }
+            .card-title { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo-section">
+            <div class="logo-icon"><img src="/favicon.png?v=1" class="logo-icon-img" alt="logo"></div>
+            <div class="logo-title">ichikaBot</div>
+            <div class="logo-subtitle">管理控制台</div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title" id="card-title">欢迎使用</div>
+                <div class="card-desc" id="card-desc">请输入密码登录管理控制台</div>
+            </div>
+
+            <div id="alert-area"></div>
+
+            <form id="auth-form" onsubmit="handleSubmit(event)">
+                <div class="form-group">
+                    <label class="form-label" id="password-label">密码</label>
+                    <input type="password" id="password" class="form-input" placeholder="请输入密码" autocomplete="off" required>
+                    <div class="password-hint" id="password-hint">密码至少需要4个字符</div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    <span id="btn-text">登录</span>
+                    <span id="btn-loading" class="loading" style="display:none"></span>
+                </button>
+            </form>
+        </div>
+
+        <div class="footer">ichikaBot Management Console</div>
+    </div>
+
+    <script>
+        let isSetupMode = false;
+
+        async function checkAuthStatus() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const json = await res.json();
+
+                if (json.authenticated) {
+                    window.location.href = '/';
+                    return;
+                }
+
+                isSetupMode = !json.hasPassword;
+                updateUI();
+            } catch (e) {
+                console.error('检查认证状态失败', e);
+                showAlert('无法连接到服务器', 'error');
+            }
+        }
+
+        function updateUI() {
+            const title = document.getElementById('card-title');
+            const desc = document.getElementById('card-desc');
+            const label = document.getElementById('password-label');
+            const hint = document.getElementById('password-hint');
+            const btnText = document.getElementById('btn-text');
+
+            if (isSetupMode) {
+                title.textContent = '设置初始密码';
+                desc.textContent = '首次使用，请设置管理密码';
+                label.textContent = '设置密码';
+                hint.textContent = '设置后请牢记，密码不会被存储在服务器之外';
+                btnText.textContent = '设置密码';
+            } else {
+                title.textContent = '欢迎回来';
+                desc.textContent = '请输入密码登录管理控制台';
+                label.textContent = '密码';
+                hint.textContent = '密码至少需要4个字符';
+                btnText.textContent = '登录';
+            }
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+
+            if (!password || password.trim().length < 4) {
+                showAlert('密码至少需要4个字符', 'error');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const url = isSetupMode ? '/api/auth/setup' : '/api/auth/login';
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `password=${encodeURIComponent(password)}`
+                });
+                const json = await res.json();
+
+                if (json.success) {
+                    showAlert(json.message, 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 500);
+                } else {
+                    showAlert(json.message, 'error');
+                }
+            } catch (e) {
+                showAlert('请求失败: ' + e.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function showAlert(message, type) {
+            const area = document.getElementById('alert-area');
+            area.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                area.innerHTML = '';
+            }, 3000);
+        }
+
+        function setLoading(loading) {
+            const btnText = document.getElementById('btn-text');
+            const btnLoading = document.getElementById('btn-loading');
+            const passwordInput = document.getElementById('password');
+
+            if (loading) {
+                btnText.textContent = '';
+                btnLoading.style.display = 'inline-block';
+                passwordInput.disabled = true;
+            } else {
+                btnText.textContent = isSetupMode ? '设置密码' : '登录';
+                btnLoading.style.display = 'none';
+                passwordInput.disabled = false;
+            }
+        }
+
+        checkAuthStatus();
+    </script>
+</body>
+</html>

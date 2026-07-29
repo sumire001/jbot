@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import javax.websocket.Session;
 import javax.websocket.OnOpen;
 import javax.websocket.OnMessage;
+import javax.websocket.OnClose;
 import javax.websocket.server.ServerEndpoint;
 import java.io.File;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -22,7 +23,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
 public class OneBotWebSocketHandler {
 
     private static final CopyOnWriteArraySet<Session> SESSIONS = new CopyOnWriteArraySet<>();
-    
+
+    /**
+     * 获取所有活跃的WebSocket会话（供外部访问）
+     */
+    public static CopyOnWriteArraySet<Session> getSessions() {
+        return SESSIONS;
+    }
+
     // 使用静态变量保存 ApplicationContext
     private static ApplicationContext applicationContext;
     
@@ -59,6 +67,13 @@ public class OneBotWebSocketHandler {
                  session.getId(), session.getRequestURI());
         log.info("当前在线连接数: {}", SESSIONS.size());
     }
+
+    @OnClose
+    public void onClose(Session session) {
+        SESSIONS.remove(session);
+        log.info("❌ WebSocket 连接断开 - Session ID: {}", session.getId());
+        log.info("当前在线连接数: {}", SESSIONS.size());
+    }
     
     
     @OnMessage
@@ -69,6 +84,11 @@ public class OneBotWebSocketHandler {
             // 先缓存消息（用于引用场景）
             JSONObject eventJson = JSON.parseObject(message);
             String postType = eventJson.getString("post_type");
+            // API 响应（如 send_msg 的 echo 回包）没有 post_type，直接跳过，
+            // 否则当成事件解析会抛出 JSONException（retcode/status 字段结构不一致）
+            if (postType == null || postType.isEmpty()) {
+                return;
+            }
             if ("message".equals(postType)) {
                 MessageCacheManager cacheManager = getMessageCacheManager();
                 cacheManager.cacheMessage(eventJson);
@@ -131,16 +151,16 @@ public class OneBotWebSocketHandler {
             return;
         }
         
-        // 获取图片绝对路径
-        String imagePath = randomMeme.getAbsolutePath();
-        log.info("选中表情: {}", imagePath);
-        
+        // 跨机器部署：云服务器上的 QQ 框架(Linux)无法读取本机(Windows)的绝对路径，
+        // 故以 base64:// 内嵌原图字节发送（保留 GIF 动图/透明通道），不再发送本地路径。
+        log.info("选中表情: {}", randomMeme.getName());
+
         // 根据消息类型发送到群聊或私聊
         String msgType = event.getMessageType() != null ? event.getMessageType() : "group";
         Long targetId = "group".equals(msgType) ? event.getGroupId() : event.getUserId();
-        
+
         if (targetId != null) {
-            apiClient.sendImage(session, msgType, targetId, imagePath);
+            apiClient.sendImageBase64Raw(session, msgType, targetId, randomMeme);
         }
     }
 }

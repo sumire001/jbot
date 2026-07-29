@@ -6,9 +6,13 @@ import com.bot.jone.ioutils.ImageDownloader;
 import com.bot.jone.ioutils.MemeManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
 import java.util.Map;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -25,14 +29,26 @@ public class MessageCacheManager {
     @Autowired
     private MemeManager memeManager;
     
-    // 缓存最近的消息，key 为 message_id
-    private final Map<Integer, JSONObject> messageCache = new ConcurrentHashMap<>();
+    @Value("${bot.cache.message-max-size:100}")
+    private int maxCacheSize;
+    
+    // 缓存最近的消息，key 为 message_id，按插入顺序维护
+    private Map<Integer, JSONObject> messageCache;
     
     // 每个群最后一条图片消息
     private final Map<Long, JSONObject> lastImageMessageInGroup = new ConcurrentHashMap<>();
     
-    // 最大缓存数量
-    private static final int MAX_CACHE_SIZE = 100;
+    @PostConstruct
+    public void init() {
+        messageCache = Collections.synchronizedMap(
+            new LinkedHashMap<Integer, JSONObject>(maxCacheSize, 0.75f, false) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<Integer, JSONObject> eldest) {
+                    return size() > maxCacheSize;
+                }
+            }
+        );
+    }
     
     /**
      * 缓存消息（只缓存包含图片的消息）
@@ -53,14 +69,8 @@ public class MessageCacheManager {
         // 【关键】收到图片消息时立即下载保存，避免链接过期
         downloadAndSaveImage(eventJson, messageArray);
         
-        // 添加到缓存
+        // 添加到缓存（LinkedHashMap会自动删除最老的条目）
         messageCache.put(messageId, eventJson);
-        
-        // 限制缓存大小
-        if (messageCache.size() > MAX_CACHE_SIZE) {
-            // 删除最早的消息（简单策略：随机删除）
-            messageCache.keySet().stream().findFirst().ifPresent(messageCache::remove);
-        }
         
         // 更新群最后一条图片消息
         Long groupId = eventJson.getLong("group_id");
@@ -136,20 +146,23 @@ public class MessageCacheManager {
                 userId = 0L; // 匿名用户
             }
             
-            // 提取文件扩展名
-            String extension = imageDownloader.extractExtension(imageUrl);
-            
             // 生成文件名（用 message_id 确保唯一性，避免按 userId 查找时错图）
             Integer messageId = eventJson.getInteger("message_id");
             String fileName = "auto_msg_" + (messageId != null ? messageId : userId);
-            
+
             // 下载图片
             byte[] imageData = imageDownloader.downloadImage(imageUrl);
             if (imageData == null || imageData.length == 0) {
                 log.warn("下载图片失败: {}", imageUrl);
                 return;
             }
-            
+
+            // 按文件头魔数识别真实格式（QQ 图片 URL 多无扩展名，URL 识别会回落成 jpg）
+            String extension = imageDownloader.detectImageExtension(imageData);
+            if (extension == null) {
+                extension = imageDownloader.extractExtension(imageUrl);
+            }
+
             // 保存到temp目录（临时保存）
             java.io.File savedFile = memeManager.saveToTemp(imageData, fileName, extension);
                         
