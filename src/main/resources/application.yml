@@ -18,9 +18,9 @@ spring:
 
 # Bot配置
 bot:
-  admin:
-    qq-list:
-      - 1948259961
+  #   admin:
+  #     qq-list:
+  #       - 你的管理员QQ
   # AI聊天配置
   ai:
     enabled: false  # 是否启用AI功能

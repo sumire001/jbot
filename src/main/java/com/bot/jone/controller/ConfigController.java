@@ -8,6 +8,8 @@ import com.bot.jone.config.CommandConfig;
 import com.bot.jone.config.ConfigHotReloadManager;
 import com.bot.jone.config.GalleryConfig;
 import com.bot.jone.config.ImagesConfig;
+import com.bot.jone.config.YamlFileUpdater;
+import com.bot.jone.permission.PermissionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -47,6 +50,9 @@ public class ConfigController {
 
     @Autowired
     private GalleryConfig galleryConfig;
+
+    @Autowired
+    private PermissionService permissionService;
 
     @Value("${bot.cache.message-max-size:100}")
     private int messageMaxSize;
@@ -113,6 +119,11 @@ public class ConfigController {
         Map<String, Object> cache = new HashMap<>();
         cache.put("messageMaxSize", messageMaxSize);
         result.put("cache", cache);
+
+        // 管理员配置
+        Map<String, Object> admin = new HashMap<>();
+        admin.put("qqList", permissionService.getAdminList());
+        result.put("admin", admin);
 
         return result;
     }
@@ -390,6 +401,52 @@ public class ConfigController {
             result.put("message", "配置已更新（需要重启生效）");
         } catch (Exception e) {
             log.error("更新配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 获取管理员QQ列表
+     */
+    @GetMapping("/admin")
+    public Map<String, Object> getAdminConfig() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("qqList", permissionService.getAdminList());
+        return result;
+    }
+
+    /**
+     * 更新管理员QQ列表（热更新内存 + 持久化到 ./config/application.yml）
+     */
+    @PostMapping("/admin")
+    public Map<String, Object> updateAdminConfig(@RequestBody Map<String, Object> body) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            Object listObj = body == null ? null : body.get("qqList");
+            List<Long> newList = new ArrayList<>();
+            if (listObj instanceof List) {
+                for (Object o : (List<?>) listObj) {
+                    if (o == null) continue;
+                    try {
+                        long qq = Long.parseLong(o.toString().trim());
+                        if (qq > 0) newList.add(qq);
+                    } catch (NumberFormatException ignore) {}
+                }
+            }
+            if (newList.isEmpty()) {
+                result.put("success", false);
+                result.put("message", "请至少提供一个有效的 QQ 号");
+                return result;
+            }
+            YamlFileUpdater.update("bot.admin.qq-list", newList);
+            permissionService.updateAdminList(newList);
+            result.put("success", true);
+            result.put("message", "管理员列表已更新并持久化");
+        } catch (Exception e) {
+            log.error("更新管理员配置失败", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }

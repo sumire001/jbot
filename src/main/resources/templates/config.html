@@ -595,6 +595,22 @@
                     <button class="btn btn-primary" onclick="updateCommandConfig()">保存命令配置</button>
                 </div>
             </div>
+
+            <!-- 管理员配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">管理员配置 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">管理员 QQ 列表（逗号 / 换行分隔）</label>
+                        <textarea id="admin-qq-list" class="form-textarea" style="min-height:90px;" placeholder="例如：123456, 654321"></textarea>
+                        <div class="form-hint">拥有最高权限的 QQ。修改后立即生效，并持久化到 ./config/application.yml（该文件已被 .gitignore 忽略，不会提交到仓库）。</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateAdmin()">保存管理员配置</button>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -669,6 +685,9 @@
                         document.getElementById('gallery-thumb-dim').value = json.gallery.thumbDim;
                     }
                     document.getElementById('msg-cache-size').value = json.cache.messageMaxSize;
+                    if (json.admin) {
+                        document.getElementById('admin-qq-list').value = (json.admin.qqList || []).join(', ');
+                    }
                     // 命令配置
                     if (json.command) {
                         document.getElementById('cmd-prefix').value = json.command.prefix || '/';
@@ -1077,6 +1096,25 @@
                 const json = await res.json();
                 if (!json.authenticated) window.location.href = '/login';
             } catch (e) {}
+        }
+
+        async function updateAdmin() {
+            const raw = document.getElementById('admin-qq-list').value;
+            const qqList = raw.split(/[\s,，]+/).map(s => s.trim()).filter(s => s.length > 0)
+                .map(s => Number(s)).filter(n => Number.isInteger(n) && n > 0);
+            if (qqList.length === 0) {
+                showToast('请至少填写一个有效 QQ', 'error');
+                return;
+            }
+            try {
+                const res = await fetch('/api/config/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qqList })
+                });
+                const json = await res.json();
+                json.success ? showToast('管理员配置已更新', 'success') : showToast('更新失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
         }
 
         checkAuth();

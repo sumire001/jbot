@@ -267,10 +267,7 @@ public class CommandHandler {
         if (tokens.length == 0) {
             apiClient.sendText(session, msgType, targetId,
                     "用法：" + prefix + "peek <分类> [页码]\n" +
-                    "例：" + prefix + "peek memes        （看第1页）\n" +
-                    "例：" + prefix + "peek pjsk 3      （看第3页）\n" +
-                    "例：" + prefix + "peek memes -1    （看最后一页）\n" +
-                    "分类必填；可用 /categories 查看；指定单图查看功能即将上线");
+                    "请选择分类；可用 /categories 查看分类");
             return;
         }
 
@@ -388,7 +385,14 @@ public class CommandHandler {
             return;
         }
 
-        boolean sent = apiClient.sendImageBase64(session, msgType, targetId, target);
+        // 单图查看：GIF 动图 / PNG 透明 / WebP / BMP 须保留原格式（重编码成 JPEG 会丢动图/透明），
+        // 仅纯静态 JPG 才受控压缩以控制 base64 体积、避免冲垮跨机器 WebSocket。
+        String lower = target.getName().toLowerCase();
+        boolean keepRaw = lower.endsWith(".gif") || lower.endsWith(".png")
+                || lower.endsWith(".webp") || lower.endsWith(".bmp");
+        boolean sent = keepRaw
+                ? apiClient.sendImageBase64Raw(session, msgType, targetId, target)
+                : apiClient.sendImageBase64(session, msgType, targetId, target);
         if (!sent) {
             apiClient.sendText(session, msgType, targetId, "图片发送超时/失败（可能是单帧过大）");
         }
