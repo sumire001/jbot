@@ -24,13 +24,25 @@ bot:
   # AI聊天配置
   ai:
     enabled: false  # 是否启用AI功能
-    api-key: ${ALIYUN_API_KEY}
-    api-url: https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions  # 阿里云百练
-    model: qwen-plus
+    api-key:
+    api-url: #https://dashscope.aliyuncs.com/compatible-mode/v1 阿里云百练
+    model: #qwen-plus
     max-tokens: 1024  # 最大回复Token数
+    summary-max-tokens: 2048  # 长期记忆摘要调用的 max_tokens 上限（推理模型会把额度花在 thinking 上，过小会被截断导致画像写不进去）
+    thinking-enabled: false  # 是否开启思考模式；关闭后 temperature 恢复生效、更便宜、且摘要不会被推理挤占预算。deepseek-v4-flash 默认开启思考，这里显式关掉
     temperature: 0.7  # 生成随机性（0-1，越高越随机）
     timeout-seconds: 60  # API请求超时时间（秒）
     history-max-context: 10  # 短期记忆最大对话轮数（每轮含user+assistant两条消息）
+    # 短期记忆持久化（重启后恢复最近对话；临时缓存性质，不替代长期记忆）
+    conversation-persist-enabled: true      # 是否落盘；关闭则纯内存、重启即丢
+    conversation-save-every-rounds: 3      # 每满 N 轮对话刷一次盘（崩溃最多丢约 N 轮）；优雅停机仍会全量落盘
+    conversation-max-idle-hours: 72        # 会话空闲超此时长（小时）判定过期并删除
+    conversation-storage-path: data/conversation_history.json  # 落盘文件路径（相对工作目录）
+    # 工具调用（Function Calling）：让 LLM 可查时间/网页以保准确性
+    tools-enabled: true            # 是否启用工具调用（LLM 可主动查时间/网页查证）
+    tool-max-rounds: 5            # 工具循环最大轮数（防死循环）
+    search-engine: duckduckgo     # 网页搜索后端：duckduckgo（无key）/ baidu（国内备选）
+    search-max-results: 5         # 网页搜索返回条数上限
     long-term-memory:
       enabled: true           # 是否启用长期记忆
       memory-dir: ./data/memory  # 文件存储目录
@@ -38,6 +50,8 @@ bot:
       max-members-per-group: 50  # 每群最多保留成员数
       inactive-days-to-remove: 30  # 不活跃用户移除天数
       summary-cooldown-minutes: 10  # 摘要冷却时间
+      max-traits-length: 300  # 单用户画像(traits)落盘最大字符数（安全阀，防 LLM 写出超长文本；非成本项）
+      max-group-context-chars: 600  # 注入聊天上下文的群成员画像总长上限（真正控制每条消息 token 成本，超出按人头截断）
   # 命令配置
   command:
     prefix: "/"  # 命令前缀，所有命令必须以此开头

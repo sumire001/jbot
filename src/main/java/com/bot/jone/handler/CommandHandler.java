@@ -582,14 +582,27 @@ public class CommandHandler {
     }
 
     /**
+     * 统一的命令权限检查：根据 CommandConfig 动态权限配置判断是否需要管理员
+     * @return true=放行，false=已拦截（已发送无权限提示）
+     */
+    private boolean ensureAdmin(String commandName, OneBotEvent event, Session session) {
+        if (!commandConfig.isAdminRequired(commandName)) {
+            return true;
+        }
+        if (permissionService.isAdmin(event.getUserId())) {
+            return true;
+        }
+        Long targetId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
+        apiClient.sendText(session, event.getMessageType(), targetId, "使用该功能需要管理员权限");
+        return false;
+    }
+
+    /**
      * 处理强制触发摘要命令（仅管理员）
      * 格式: /summary
      */
     private void handleSummary(OneBotEvent event, Session session) {
-        if (!permissionService.isAdmin(event.getUserId())) {
-            apiClient.sendText(session, event.getMessageType(), 
-                "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId(),
-                "使用该功能需要管理员权限");
+        if (!ensureAdmin("summary", event, session)) {
             return;
         }
         
@@ -618,10 +631,7 @@ public class CommandHandler {
      * 格式: /profile [QQ号] 或 /profile（查看自己）
      */
     private void handleProfile(OneBotEvent event, Session session, String content) {
-        if (!permissionService.isAdmin(event.getUserId())) {
-            apiClient.sendText(session, event.getMessageType(), 
-                "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId(),
-                "使用该功能需要管理员权限");
+        if (!ensureAdmin("profile", event, session)) {
             return;
         }
         
@@ -665,10 +675,7 @@ public class CommandHandler {
      * 格式: /clear-memory [QQ号] 或 /clear-memory all（清空全部）
      */
     private void handleClearMemory(OneBotEvent event, Session session, String content) {
-        if (!permissionService.isAdmin(event.getUserId())) {
-            apiClient.sendText(session, event.getMessageType(), 
-                "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId(),
-                "使用该功能需要管理员权限");
+        if (!ensureAdmin("clear-memory", event, session)) {
             return;
         }
         
@@ -825,9 +832,9 @@ public class CommandHandler {
      * @param createNewCategory 是否创建新分类
      */
     private void handleStealMeme(OneBotEvent event, Session session, String category, boolean createNewCategory) {
-        // 权限检查：只有管理员可以偷图
+        // 权限检查：只有管理员可以偷图（受 commandPermissions 动态配置控制）
         Long userId = event.getUserId();
-        if (!permissionService.isAdmin(userId)) {
+        if (commandConfig.isAdminRequired("偷一下") && !permissionService.isAdmin(userId)) {
             apiClient.sendText(session, "group", event.getGroupId(), 
                 "使用该功能需要管理员权限");
             log.warn("非管理员尝试偷图: user={}", userId);
@@ -1141,8 +1148,8 @@ public class CommandHandler {
             return;
         }
 
-        // 有参数时需要管理员权限
-        if (!permissionService.isAdmin(event.getUserId())) {
+        // 有参数时需要管理员权限（受 commandPermissions 动态配置控制；无参数查看状态仍公开）
+        if (commandConfig.isAdminRequired("enable") && !permissionService.isAdmin(event.getUserId())) {
             log.info("[AI开关] 非管理员尝试操作: userId={}", event.getUserId());
             Long targetId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
             apiClient.sendText(session, event.getMessageType(), targetId, "使用该功能需要管理员权限");

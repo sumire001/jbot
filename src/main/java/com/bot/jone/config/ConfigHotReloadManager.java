@@ -37,7 +37,7 @@ public class ConfigHotReloadManager {
      * 更新命令配置（前缀 + 别名）
      * 内存立即生效 + 持久化到 config/application.yml
      */
-    public void updateCommandConfig(String prefix, Map<String, String> aliases) {
+    public void updateCommandConfig(String prefix, Map<String, String> aliases, Map<String, Boolean> permissions) {
         commandConfig.setPrefix(prefix);
         commandConfig.getAliases().clear();
         commandConfig.getAliases().putAll(aliases);
@@ -48,6 +48,11 @@ public class ConfigHotReloadManager {
                     || commandConfig.getAliases().get(e.getKey()).isEmpty()) {
                 commandConfig.getAliases().put(e.getKey(), e.getValue());
             }
+        }
+
+        // 命令权限（以用户提交为准，未提交命令用默认兜底）
+        if (permissions != null) {
+            commandConfig.setCommandPermissions(permissions);
         }
 
         addOrReplaceProperty("bot.command.prefix", prefix);
@@ -62,10 +67,11 @@ public class ConfigHotReloadManager {
         Map<String, Object> persist = new LinkedHashMap<>();
         persist.put("bot.command.prefix", prefix);
         persist.put("bot.command.aliases", persistAliases);
+        persist.put("bot.command.permissions", commandConfig.getCommandPermissions());
         YamlFileUpdater.updateAll(persist);
 
-        log.info("[配置热更新] 命令前缀='{}', 用户配置别名={}, 合并后总数={}",
-                prefix, persistAliases.size(), commandConfig.getAliases().size());
+        log.info("[配置热更新] 命令前缀='{}', 用户配置别名={}, 权限={}",
+                prefix, persistAliases.size(), commandConfig.getCommandPermissions().size());
     }
 
     /**

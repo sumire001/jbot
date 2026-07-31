@@ -113,6 +113,7 @@ public class ConfigController {
         Map<String, Object> command = new HashMap<>();
         command.put("prefix", commandConfig.getPrefix());
         command.put("aliases", commandConfig.getFullCommandView());
+        command.put("permissions", commandConfig.getFullPermissionView());
         result.put("command", command);
 
         // 缓存配置
@@ -137,12 +138,13 @@ public class ConfigController {
         result.put("success", true);
         result.put("prefix", commandConfig.getPrefix());
         result.put("aliases", commandConfig.getFullCommandView());
+        result.put("permissions", commandConfig.getFullPermissionView());
         return result;
     }
 
     /**
      * 更新命令配置
-     * Body: { "prefix": "/", "aliases": {"偷一下": "steal"} }
+     * Body: { "prefix": "/", "aliases": {"偷一下": "steal"}, "permissions": {"偷一下": true} }
      */
     @PostMapping("/command")
     public Map<String, Object> updateCommandConfig(@RequestBody Map<String, Object> body) {
@@ -173,7 +175,20 @@ public class ConfigController {
                     }
                 }
             }
-            hotReloadManager.updateCommandConfig(prefix, cleanedAliases);
+            Map<String, Boolean> cleanedPermissions = new LinkedHashMap<>();
+            Object permObj = body.get("permissions");
+            if (permObj instanceof Map) {
+                for (Map.Entry<?, ?> entry : ((Map<?, ?>) permObj).entrySet()) {
+                    String key = entry.getKey() == null ? "" : String.valueOf(entry.getKey()).trim();
+                    if (key.isEmpty()) continue;
+                    Object val = entry.getValue();
+                    Boolean b = null;
+                    if (val instanceof Boolean) b = (Boolean) val;
+                    else if (val != null) b = Boolean.parseBoolean(val.toString());
+                    if (b != null) cleanedPermissions.put(key, b);
+                }
+            }
+            hotReloadManager.updateCommandConfig(prefix, cleanedAliases, cleanedPermissions);
             result.put("success", true);
             result.put("message", "命令配置已更新并持久化");
         } catch (Exception e) {

@@ -270,6 +270,97 @@
         .theme-radio-icon { font-size: 24px; margin-bottom: 4px; }
         .theme-radio-label { font-size: 13px; color: var(--text-primary); }
 
+        /* --- 命令配置统一表格布局 --- */
+        .cmd-list-header {
+            display: flex;
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .cmd-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 14px;
+            transition: background 0.2s;
+        }
+        .cmd-row:hover { background: var(--bg-tertiary); }
+        .cmd-row:last-child { border-bottom: none; }
+        .col-cmd-name { flex: 2; min-width: 110px; }
+        .col-cmd-alias { flex: 3; min-width: 160px; }
+        .col-cmd-perm { width: 130px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .col-cmd-action { width: 56px; text-align: right; flex-shrink: 0; }
+        /* 权限 toggle 开关 (紧凑版) */
+        .switch-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+            user-select: none;
+            white-space: nowrap;
+        }
+        .switch-input { display: none; }
+        .switch-slider-sm {
+            position: relative;
+            width: 34px;
+            height: 20px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            margin-right: 6px;
+            transition: 0.3s;
+            flex-shrink: 0;
+        }
+        .switch-slider-sm:before {
+            content: "";
+            position: absolute;
+            height: 14px;
+            width: 14px;
+            left: 2px;
+            bottom: 2px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        .switch-input:checked + .switch-slider-sm {
+            background: var(--gradient-1);
+            border-color: transparent;
+        }
+        .switch-input:checked + .switch-slider-sm:before {
+            transform: translateX(14px);
+            background: #fff;
+        }
+        /* 删除按钮(文字式) */
+        .btn-del { 
+            background: none; color: var(--accent-red); border: none; 
+            cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .btn-del:hover { background: rgba(245,108,108,0.1); }
+        /* 添加行 */
+        .cmd-add-row {
+            display: flex;
+            gap: 14px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--border-color);
+            align-items: center;
+        }
+        .cmd-add-row .form-input { background: var(--bg-card); }
+        .btn-add {
+            background: var(--gradient-1); color: #fff; border: none;
+            padding: 9px 18px; border-radius: 8px; cursor: pointer;
+            font-size: 13px; font-weight: 500; transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-add:hover { opacity: 0.85; }
+
         @media (max-width: 768px) {
             .page-title { font-size: 22px; }
             .config-panel { border-radius: 12px; }
@@ -579,20 +670,42 @@
                 <div class="config-panel-body">
                     <div class="form-group">
                         <label class="form-label">命令前缀</label>
-                        <input type="text" id="cmd-prefix" class="form-input" maxlength="4" value="/">
-                        <div class="form-hint">所有命令必须以此前缀开头，最长 4 个字符（如 / 或 !）</div>
+                        <input type="text" id="cmd-prefix" class="form-input" maxlength="4" value="/" style="max-width: 120px;">
+                        <div class="form-hint">所有命令必须以此开头，最长 4 字符。</div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">命令别名</label>
-                        <div class="form-hint" style="margin-bottom:12px;">为命令设置昵称，多个别名用英文逗号分隔。主名是默认触发的命令名。</div>
-                        <div id="cmd-aliases-list"></div>
-                        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-                            <input type="text" id="cmd-new-key" class="form-input" placeholder="主命令名（如 偷一下）" style="flex:1;min-width:140px;">
-                            <input type="text" id="cmd-new-value" class="form-input" placeholder="别名（逗号分隔，如 steal,偷）" style="flex:1;min-width:140px;">
-                            <button class="btn btn-secondary btn-sm" onclick="addCommandAlias()">添加</button>
+
+                    <!-- 统一表格：表头 -->
+                    <div class="cmd-list-header">
+                        <div class="col-cmd-name">主命令名</div>
+                        <div class="col-cmd-alias">别名 (逗号分隔)</div>
+                        <div class="col-cmd-perm">管理员权限</div>
+                        <div class="col-cmd-action">操作</div>
+                    </div>
+
+                    <!-- 动态命令行容器 -->
+                    <div id="cmd-list-container"></div>
+
+                    <!-- 添加行 -->
+                    <div class="cmd-add-row">
+                        <div class="col-cmd-name">
+                            <input type="text" id="cmd-new-key" class="form-input" placeholder="新命令名">
+                        </div>
+                        <div class="col-cmd-alias">
+                            <input type="text" id="cmd-new-value" class="form-input" placeholder="别名(可选)">
+                        </div>
+                        <div class="col-cmd-perm">
+                            <label class="switch-label">
+                                <input type="checkbox" id="cmd-new-perm" class="switch-input">
+                                <span class="switch-slider-sm"></span>
+                                <span>需管理</span>
+                            </label>
+                        </div>
+                        <div class="col-cmd-action">
+                            <button class="btn-add" onclick="addCommandRow()">添加</button>
                         </div>
                     </div>
-                    <button class="btn btn-primary" onclick="updateCommandConfig()">保存命令配置</button>
+
+                    <button class="btn btn-primary" onclick="updateCommandConfig()" style="margin-top:20px;">保存全部配置</button>
                 </div>
             </div>
 
@@ -605,7 +718,7 @@
                     <div class="form-group">
                         <label class="form-label">管理员 QQ 列表（逗号 / 换行分隔）</label>
                         <textarea id="admin-qq-list" class="form-textarea" style="min-height:90px;" placeholder="例如：123456, 654321"></textarea>
-                        <div class="form-hint">拥有最高权限的 QQ。修改后立即生效，并持久化到 ./config/application.yml（该文件已被 .gitignore 忽略，不会提交到仓库）。</div>
+                        <div class="form-hint">拥有最高权限的 QQ。修改后立即生效。</div>
                     </div>
                     <button class="btn btn-primary" onclick="updateAdmin()">保存管理员配置</button>
                 </div>
@@ -691,93 +804,124 @@
                     // 命令配置
                     if (json.command) {
                         document.getElementById('cmd-prefix').value = json.command.prefix || '/';
-                        renderCommandAliases(json.command.aliases || {});
+                        renderCommandList(json.command.aliases || {}, json.command.permissions || {});
                     }
                 }
             } catch (e) { console.error(e); }
         }
 
-        // 渲染命令别名列表
-        function renderCommandAliases(aliases) {
-            const container = document.getElementById('cmd-aliases-list');
+        // 渲染统一命令列表（别名 + 权限合并为表格行）
+        function renderCommandList(aliases, permissions) {
+            const container = document.getElementById('cmd-list-container');
             container.innerHTML = '';
-            const entries = Object.entries(aliases);
-            if (entries.length === 0) {
-                container.innerHTML = '<div class="form-hint">暂无别名，可在下方添加</div>';
+            // 获取所有已知命令名（取 aliases 和 permissions 的并集）
+            const allCmds = new Set([...Object.keys(aliases || {}), ...Object.keys(permissions || {})]);
+            if (allCmds.size === 0) {
+                container.innerHTML = '<div class="form-hint" style="padding:12px 16px;">暂无命令配置，可在下方添加</div>';
                 return;
             }
-            entries.forEach(([key, value]) => {
+            allCmds.forEach(cmd => {
+                const alias = aliases[cmd] || '';
+                const perm = !!(permissions || {})[cmd];
                 const row = document.createElement('div');
-                row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap;';
-                const keyInput = document.createElement('input');
-                keyInput.type = 'text';
-                keyInput.className = 'form-input cmd-alias-key';
-                keyInput.value = key;
-                keyInput.style.flex = '1';
-                keyInput.style.minWidth = '120px';
-                keyInput.placeholder = '主命令名';
-                const valInput = document.createElement('input');
-                valInput.type = 'text';
-                valInput.className = 'form-input cmd-alias-value';
-                valInput.value = value || '';
-                valInput.style.flex = '2';
-                valInput.style.minWidth = '160px';
-                valInput.placeholder = '别名（逗号分隔）';
+                row.className = 'cmd-row';
+                row.dataset.cmd = cmd;
+                // 主命令名（只读）
+                const nameCol = document.createElement('div');
+                nameCol.className = 'col-cmd-name';
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.className = 'form-input cmd-cmd-name';
+                nameInput.value = cmd;
+                nameInput.readOnly = true;
+                nameInput.style.background = 'var(--bg-tertiary)';
+                nameInput.style.cursor = 'default';
+                nameCol.appendChild(nameInput);
+                // 别名（可编辑）
+                const aliasCol = document.createElement('div');
+                aliasCol.className = 'col-cmd-alias';
+                const aliasInput = document.createElement('input');
+                aliasInput.type = 'text';
+                aliasInput.className = 'form-input cmd-cmd-alias';
+                aliasInput.value = alias;
+                aliasInput.placeholder = '逗号分隔';
+                aliasCol.appendChild(aliasInput);
+                // 权限开关
+                const permCol = document.createElement('div');
+                permCol.className = 'col-cmd-perm';
+                const label = document.createElement('label');
+                label.className = 'switch-label';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'switch-input cmd-perm-cb';
+                cb.dataset.cmd = cmd;
+                cb.checked = perm;
+                const slider = document.createElement('span');
+                slider.className = 'switch-slider-sm';
+                const text = document.createElement('span');
+                text.textContent = '需管理';
+                if (cmd === 'enable') {
+                    text.textContent = '需管理';
+                    const hint = document.createElement('span');
+                    hint.style.cssText = 'color:var(--text-secondary);font-size:11px;margin-left:2px;';
+                    hint.title = '查看公开·修改需管理员';
+                    hint.textContent = '*';
+                    text.appendChild(hint);
+                }
+                label.appendChild(cb); label.appendChild(slider); label.appendChild(text);
+                permCol.appendChild(label);
+                // 删除按钮
+                const actionCol = document.createElement('div');
+                actionCol.className = 'col-cmd-action';
                 const delBtn = document.createElement('button');
-                delBtn.className = 'btn btn-secondary btn-sm';
+                delBtn.className = 'btn-del';
                 delBtn.textContent = '删除';
                 delBtn.onclick = () => row.remove();
-                row.appendChild(keyInput);
-                row.appendChild(valInput);
-                row.appendChild(delBtn);
+                actionCol.appendChild(delBtn);
+
+                row.appendChild(nameCol); row.appendChild(aliasCol);
+                row.appendChild(permCol); row.appendChild(actionCol);
                 container.appendChild(row);
             });
         }
 
-        function addCommandAlias() {
+        function addCommandRow() {
             const keyInput = document.getElementById('cmd-new-key');
             const valInput = document.getElementById('cmd-new-value');
             const key = keyInput.value.trim();
-            const value = valInput.value.trim();
-            if (!key) {
-                showToast('请输入主命令名', 'error');
-                return;
-            }
+            if (!key) { showToast('请输入新命令名', 'error'); return; }
             // 检查重复
-            const keys = Array.from(document.querySelectorAll('.cmd-alias-key')).map(i => i.value);
-            if (keys.includes(key)) {
-                showToast('该命令已存在别名配置', 'error');
-                return;
+            const existing = Array.from(document.querySelectorAll('.cmd-cmd-name')).map(i => i.value.trim());
+            if (existing.includes(key)) {
+                showToast(`命令 "${key}" 已存在`, 'error'); return;
             }
-            const container = document.getElementById('cmd-aliases-list');
-            // 清空"暂无别名"提示
+            const container = document.getElementById('cmd-list-container');
             if (container.querySelector('.form-hint')) container.innerHTML = '';
+            const permChecked = document.getElementById('cmd-new-perm').checked;
+            // 复用 render 的行结构，手动插入一行
             const row = document.createElement('div');
-            row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap;';
-            const k = document.createElement('input');
-            k.type = 'text';
-            k.className = 'form-input cmd-alias-key';
-            k.value = key;
-            k.style.flex = '1';
-            k.style.minWidth = '120px';
-            k.placeholder = '主命令名';
-            const v = document.createElement('input');
-            v.type = 'text';
-            v.className = 'form-input cmd-alias-value';
-            v.value = value;
-            v.style.flex = '2';
-            v.style.minWidth = '160px';
-            v.placeholder = '别名（逗号分隔）';
-            const delBtn = document.createElement('button');
-            delBtn.className = 'btn btn-secondary btn-sm';
-            delBtn.textContent = '删除';
-            delBtn.onclick = () => row.remove();
-            row.appendChild(k);
-            row.appendChild(v);
-            row.appendChild(delBtn);
+            row.className = 'cmd-row';
+            row.dataset.cmd = key;
+
+            const nameCol = document.createElement('div'); nameCol.className = 'col-cmd-name';
+            const ni = document.createElement('input'); ni.type='text'; ni.className='form-input cmd-cmd-name'; ni.value=key; ni.readOnly=true; ni.style.background='var(--bg-tertiary)'; ni.style.cursor='default'; nameCol.appendChild(ni);
+
+            const aliasCol = document.createElement('div'); aliasCol.className = 'col-cmd-alias';
+            const ai = document.createElement('input'); ai.type='text'; ai.className='form-input cmd-cmd-alias'; ai.value=valInput.value.trim(); ai.placeholder='逗号分隔'; aliasCol.appendChild(ai);
+
+            const permCol = document.createElement('div'); permCol.className = 'col-cmd-perm';
+            const label = document.createElement('label'); label.className='switch-label';
+            const cb = document.createElement('input'); cb.type='checkbox'; cb.className='switch-input cmd-perm-cb'; cb.dataset.cmd=key; cb.checked=permChecked;
+            const sl = document.createElement('span'); sl.className='switch-slider-sm';
+            const tx = document.createElement('span'); tx.textContent='需管理';
+            label.appendChild(cb); label.appendChild(sl); label.appendChild(tx); permCol.appendChild(label);
+
+            const actCol = document.createElement('div'); actCol.className = 'col-cmd-action';
+            const db = document.createElement('button'); db.className='btn-del'; db.textContent='删除'; db.onclick=()=>row.remove(); actCol.appendChild(db);
+
+            row.appendChild(nameCol); row.appendChild(aliasCol); row.appendChild(permCol); row.appendChild(actCol);
             container.appendChild(row);
-            keyInput.value = '';
-            valInput.value = '';
+            keyInput.value = ''; valInput.value = ''; document.getElementById('cmd-new-perm').checked = false;
         }
 
         async function updateCommandConfig() {
@@ -786,26 +930,28 @@
                 showToast('命令前缀不能为空', 'error');
                 return;
             }
-            const keys = document.querySelectorAll('.cmd-alias-key');
-            const values = document.querySelectorAll('.cmd-alias-value');
+            // 从统一表格收集数据
+            const nameInputs = document.querySelectorAll('.cmd-cmd-name');
+            const aliasInputs = document.querySelectorAll('.cmd-cmd-alias');
             const aliases = {};
             const seen = new Set();
-            for (let i = 0; i < keys.length; i++) {
-                const k = keys[i].value.trim();
-                const v = values[i].value.trim();
+            for (let i = 0; i < nameInputs.length; i++) {
+                const k = nameInputs[i].value.trim();
+                const v = aliasInputs[i] ? aliasInputs[i].value.trim() : '';
                 if (!k) continue;
-                if (seen.has(k)) {
-                    showToast(`主命令名 "${k}" 重复`, 'error');
-                    return;
-                }
+                if (seen.has(k)) { showToast(`主命令名 "${k}" 重复`, 'error'); return; }
                 seen.add(k);
                 aliases[k] = v;
             }
+            const permissions = {};
+            document.querySelectorAll('.cmd-perm-cb').forEach(cb => {
+                permissions[cb.dataset.cmd] = cb.checked;
+            });
             try {
                 const res = await fetch('/api/config/command', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prefix, aliases })
+                    body: JSON.stringify({ prefix, aliases, permissions })
                 });
                 const json = await res.json();
                 if (json.success) {
@@ -823,7 +969,7 @@
                 const json = await res.json();
                 if (json.success) {
                     document.getElementById('cmd-prefix').value = json.prefix || '/';
-                    renderCommandAliases(json.aliases || {});
+                    renderCommandList(json.aliases || {}, json.permissions || {});
                 }
             } catch (e) { console.error(e); }
         }

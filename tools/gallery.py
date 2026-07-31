@@ -187,7 +187,7 @@ def screenshot(html, out_png, width, scale):
 
 def main():
     ap = argparse.ArgumentParser(description="画廊生成 + 整页截图工具")
-    ap.add_argument("--dir", default="data/images/memes", help="图片目录")
+    ap.add_argument("--dir", default="./data/images/memes", help="图片目录")
     ap.add_argument("--out", default="gallery_output", help="输出目录")
     ap.add_argument("--cols", type=int, default=6, help="每行列数")
     ap.add_argument("--rows", type=int, default=7, help="每页行数")

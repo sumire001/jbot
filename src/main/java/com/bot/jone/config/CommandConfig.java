@@ -65,6 +65,12 @@ public class CommandConfig {
     private Map<String, String> aliases = new LinkedHashMap<>();
 
     /**
+     * 命令权限映射：内部命令名 -> 是否需要管理员权限
+     * 同 aliases，含中文键，必须绕过 Spring 绑定，在 initDefaults 中直接解析 YAML
+     */
+    private Map<String, Boolean> commandPermissions = new LinkedHashMap<>();
+
+    /**
      * 默认别名映射（仅当用户未配置时使用）
      * 如果用户在 config/application.yml 中持久化了别名，则以用户配置为准
      */
@@ -85,6 +91,30 @@ public class CommandConfig {
         m.put("peek", "peek");
         m.put("look", "look");
         DEFAULT_ALIASES = Collections.unmodifiableMap(m);
+    }
+
+    /**
+     * 默认权限：true=需要管理员，false=公开
+     * 对应原硬编码 isAdmin 检查：偷一下/summary/profile/clear-memory 全程需 admin；
+     * enable 默认需 admin（但其 handler 内"无参数查看状态"仍对所有人公开，仅修改需 admin）
+     */
+    public static final Map<String, Boolean> DEFAULT_PERMISSIONS;
+    static {
+        Map<String, Boolean> m = new LinkedHashMap<>();
+        m.put("测试", false);
+        m.put("戳一戳", false);
+        m.put("偷一下", true);
+        m.put("随机图", false);
+        m.put("enable", true);
+        m.put("reset", false);
+        m.put("history", false);
+        m.put("summary", true);
+        m.put("profile", true);
+        m.put("clear-memory", true);
+        m.put("categories", false);
+        m.put("peek", false);
+        m.put("look", false);
+        DEFAULT_PERMISSIONS = Collections.unmodifiableMap(m);
     }
 
     @PostConstruct
@@ -127,6 +157,22 @@ public class CommandConfig {
                 filled++;
             }
         }
+        // 解析命令权限（同样绕过 Spring 中文键限制）
+        Map<String, Boolean> filePermissions = loadPermissionsFromYaml(configFile);
+        if (filePermissions.isEmpty()) {
+            filePermissions = loadPermissionsFromYaml(getClass().getResourceAsStream("/application.yml"));
+        }
+        this.commandPermissions.clear();
+        for (Map.Entry<String, Boolean> e : filePermissions.entrySet()) {
+            if (e.getKey() != null && !e.getKey().isEmpty() && e.getValue() != null) {
+                this.commandPermissions.put(e.getKey(), e.getValue());
+            }
+        }
+        // 仅为未配置权限的命令填充默认值
+        for (Map.Entry<String, Boolean> e : DEFAULT_PERMISSIONS.entrySet()) {
+            this.commandPermissions.putIfAbsent(e.getKey(), e.getValue());
+        }
+
         log.info("[CommandConfig] initDefaults 填充了 {} 个默认别名，最终 aliases: {}", filled, aliases);
     }
 
@@ -203,6 +249,108 @@ public class CommandConfig {
             view.put(cmd, alias == null ? "" : alias);
         }
         return view;
+    }
+
+    public Map<String, Boolean> getCommandPermissions() {
+        return commandPermissions;
+    }
+
+    /**
+     * 设置命令权限（以用户提交为准），并为缺失命令补充默认权限
+     */
+    public void setCommandPermissions(Map<String, Boolean> permissions) {
+        this.commandPermissions.clear();
+        if (permissions != null) {
+            for (Map.Entry<String, Boolean> e : permissions.entrySet()) {
+                if (e.getKey() != null && !e.getKey().isEmpty() && e.getValue() != null) {
+                    this.commandPermissions.put(e.getKey(), e.getValue());
+                }
+            }
+        }
+        for (Map.Entry<String, Boolean> e : DEFAULT_PERMISSIONS.entrySet()) {
+            this.commandPermissions.putIfAbsent(e.getKey(), e.getValue());
+        }
+    }
+
+    /**
+     * 判断命令是否需要管理员权限（供 CommandHandler 调用，支持动态配置）
+     */
+    public boolean isAdminRequired(String commandName) {
+        Boolean v = commandPermissions.get(commandName);
+        if (v != null) return v;
+        Boolean d = DEFAULT_PERMISSIONS.get(commandName);
+        return d != null ? d : false;
+    }
+
+    /**
+     * 获取完整权限视图（WebUI 显示），以 ALL_COMMANDS 为基准
+     */
+    public Map<String, Boolean> getFullPermissionView() {
+        Map<String, Boolean> view = new LinkedHashMap<>();
+        for (String cmd : ALL_COMMANDS) {
+            view.put(cmd, isAdminRequired(cmd));
+        }
+        return view;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Boolean> loadPermissionsFromYaml(File file) {
+        if (file == null || !file.exists()) {
+            return new LinkedHashMap<>();
+        }
+        try {
+            return loadPermissionsFromYaml(new FileInputStream(file));
+        } catch (Exception e) {
+            log.warn("[CommandConfig] 读取配置文件(permissions)失败: {}", e.getMessage());
+            return new LinkedHashMap<>();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Boolean> loadPermissionsFromYaml(InputStream is) {
+        Map<String, Boolean> result = new LinkedHashMap<>();
+        if (is == null) {
+            return result;
+        }
+        try {
+            Yaml yaml = new Yaml();
+            Object root = yaml.load(is);
+            if (!(root instanceof Map)) {
+                return result;
+            }
+            Object bot = ((Map<?, ?>) root).get("bot");
+            if (!(bot instanceof Map)) {
+                return result;
+            }
+            Object command = ((Map<?, ?>) bot).get("command");
+            if (!(command instanceof Map)) {
+                return result;
+            }
+            Object permObj = ((Map<?, ?>) command).get("permissions");
+            if (!(permObj instanceof Map)) {
+                return result;
+            }
+            for (Map.Entry<?, ?> en : ((Map<?, ?>) permObj).entrySet()) {
+                String k = en.getKey() == null ? null : String.valueOf(en.getKey());
+                if (k == null || k.isEmpty()) {
+                    continue;
+                }
+                Object v = en.getValue();
+                if (v instanceof Boolean) {
+                    result.put(k, (Boolean) v);
+                } else if (v != null) {
+                    result.put(k, Boolean.parseBoolean(v.toString()));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[CommandConfig] 解析 permissions 失败: {}", e.getMessage());
+        } finally {
+            try {
+                is.close();
+            } catch (Exception ignored) {
+            }
+        }
+        return result;
     }
 
     /**

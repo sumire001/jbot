@@ -13,6 +13,7 @@ import javax.websocket.Session;
 import javax.websocket.OnOpen;
 import javax.websocket.OnMessage;
 import javax.websocket.OnClose;
+import javax.websocket.CloseReason;
 import javax.websocket.server.ServerEndpoint;
 import java.io.File;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -62,6 +63,11 @@ public class OneBotWebSocketHandler {
     
     @OnOpen
     public void onOpen(Session session) {
+        // 调大接收缓冲上限：Tomcat(内嵌 WebSocket)默认仅 8192 字节(8KB)，
+        // 群聊长文本 / 带 CQ 码 / 引用回复的消息常超此限，会被以 TOO_BIG(1009) 直接断开连接，
+        // 表现为“一发长文本 websocket 就断”。提到 10MB 以容纳长消息。
+        session.setMaxTextMessageBufferSize(10 * 1024 * 1024);
+        session.setMaxBinaryMessageBufferSize(10 * 1024 * 1024);
         SESSIONS.add(session);
         log.info("✅ WebSocket 连接建立 - Session ID: {}, 远程地址: {}", 
                  session.getId(), session.getRequestURI());
@@ -69,9 +75,10 @@ public class OneBotWebSocketHandler {
     }
 
     @OnClose
-    public void onClose(Session session) {
+    public void onClose(Session session, CloseReason closeReason) {
         SESSIONS.remove(session);
-        log.info("❌ WebSocket 连接断开 - Session ID: {}", session.getId());
+        log.info("❌ WebSocket 连接断开 - Session ID: {}, 原因: {}", 
+                 session.getId(), closeReason);
         log.info("当前在线连接数: {}", SESSIONS.size());
     }
     

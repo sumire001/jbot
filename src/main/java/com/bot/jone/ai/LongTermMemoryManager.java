@@ -134,9 +134,20 @@ public class LongTermMemoryManager {
             userInfo = "当前用户QQ: " + senderId + ", 昵称: " + (speaker != null ? speaker : "未知") + "\n";
         }
 
+        // 提取已有画像，注入提示词用于增量更新（否则旧特征/旧群氛围会被覆盖丢失）
+        GroupMemory existingGroup = "group".equals(messageType) ? groupMemoryMap.get(sessionId) : null;
+        UserMemory existingUser = userMemoryMap.get(senderId);
+        String oldGroupSummary = (existingGroup != null && existingGroup.getSummary() != null && !existingGroup.getSummary().isEmpty())
+                ? existingGroup.getSummary() : "（暂无）";
+        String oldTraits = (existingUser != null && existingUser.getTraits() != null && !existingUser.getTraits().isEmpty())
+                ? existingUser.getTraits() : "（暂无）";
+
         String prompt = "你是一个对话摘要专家。请分析以下对话历史，输出结构化的群摘要和用户画像更新。\n\n" +
             "## 已知用户信息\n" + userInfo +
             "## 对话历史（按时间顺序）\n" + historyText + "\n" +
+            "## 已有画像（必须在此基础增量，禁止丢弃旧信息）\n" +
+            "群摘要现状: " + oldGroupSummary + "\n" +
+            "用户特征现状: " + oldTraits + "\n" +
             "## 输出格式（必须是纯 JSON，无其他文字）\n" +
             "{\n" +
             "  \"groupSummary\": \"用40-80字描述群氛围、常聊话题、群内约定\",\n" +
@@ -144,7 +155,7 @@ public class LongTermMemoryManager {
             "    {\n" +
             "      \"qq\": " + senderId + ",\n" +
             "      \"nickname\": \"" + (speaker != null ? speaker : "未知") + "\",\n" +
-            "      \"traits\": \"用20-40字描述用户的兴趣爱好、性格特征、说话风格\"\n" +
+            "      \"traits\": \"原子化、去重后的用户特征列表（如'喜欢用拟声词呃呃'、'偏好猫系语气词喵'）。要求：1) 同一含义禁止用多种说法重复（如不要同时写'说话极简'与'说话简洁'）；2) 每条必须是完整自洽的短语，禁止半截话（不得出现以'和'、'与'、'喜欢'等词结尾的残缺表述）；3) 总长度严格不超过 100 字；4) 即使本轮未揭示新特征，也必须在'用户特征现状'基础上整体整理后输出（合并去重、补全半截表述、裁到100字以内），不得原样照抄残缺或重复的条目，也不得丢失仍成立的旧特征\"\n" +
             "    }\n" +
             "  ]\n" +
             "}\n\n" +
@@ -152,13 +163,22 @@ public class LongTermMemoryManager {
             "1. 只更新这轮对话中发言的用户，未发言的不写入 userUpdates\n" +
             "2. qq 必须使用上面给出的已知值 " + senderId + "，不能猜测或编造\n" +
             "3. nickname 必须使用上面给出的已知值，不能猜测或编造\n" +
-            "4. traits 是增量更新，保留之前的特征，新增本轮发现的特征\n" +
-            "5. 如果用户特征没有变化，不要重复输出\n" +
-            "6. 必须是合法 JSON，不能有注释\n";
+            "4. 基于【已有画像】+【新对话】，输出合并去重后的【完整】groupSummary 与 traits，不得只保留近期内容\n" +
+            "5. 已有画像里已存在的相同特征不要重复输出；群摘要需融合旧群摘要与新观察，旧约定/氛围若仍成立必须保留\n" +
+            "6. traits 必须去重：同一含义的不同表述（如'说话极简'/'说话简洁'/'说话短促'/'说话简短'，或'性格迷糊'/'性格迷糊可爱'）只保留一条信息量最大、最具体的，禁止并列；'用户特征现状'里已有的特征，不要换个说法再次列出\n" +
+            "7. 每条 traits 必须是完整的短语，绝不在词中途截断（如'喜欢用拟声词和'这种半截话一律禁止）；若篇幅受限，宁可少写几条完整特征，也不要写半截。traits 总长度严格不超过 100 字，超出时优先保留最新、最具体的特征，删掉冗余旧表述\n" +
+            "8. 必须是合法 JSON，不能有注释\n";
 
         String response = aiService.summarize(prompt);
-        if (response == null || response.isEmpty()) {
-            log.warn("[长期记忆] 摘要返回为空");
+        if (response == null) {
+            // 调用层失败（网络异常 / HTTP 非 200），具体原因见上方 [AI] 请求失败日志
+            log.warn("[长期记忆] 摘要调用失败（AI 服务异常或 HTTP 非200），请查看上方 [AI] 请求失败日志");
+            return null;
+        }
+        if (response.isEmpty()) {
+            // HTTP 200 但 content 为空：最常见于内容安全过滤拦截、模型返回空、或响应无 choices
+            log.warn("[长期记忆] 摘要返回空内容：AI 返回 HTTP 200 但 content 为空。"
+                + "常见原因=对话含敏感词被安全过滤 / 模型返回空 / 响应无 choices。请查看上方 [AI] 原始响应日志");
             return null;
         }
         try {
@@ -216,7 +236,7 @@ public class LongTermMemoryManager {
                     user.updateGroupNickname(sessionId, nickname);
                 }
                 if (traits != null && !traits.isEmpty()) {
-                    user.updateTraits(traits);
+                    user.updateTraits(traits, memoryConfig.getMaxTraitsLength());
                 }
                 dirtyUsers.add(qq);
 
@@ -238,18 +258,32 @@ public class LongTermMemoryManager {
             return "";
         }
         StringBuilder context = new StringBuilder();
+        context.append("# 以下是对本群/用户的推测印象（由对话自动归纳，可能不准确，仅供参考，不要当作确定事实复述）:\n");
         context.append("# 最近群里的氛围: ");
         context.append(group.getSummary());
         context.append("\n\n# 你认识这些人: ");
+        // 群成员画像按人头拼接会随人数线性膨胀，是每条消息 token 成本的主要来源。
+        // 用 maxGroupContextChars 做预算：超出后停止追加并提示省略（在成员边界截断，不切断单条画像）。
+        int budget = memoryConfig.getMaxGroupContextChars();
+        int used = 0;
         boolean first = true;
+        boolean truncated = false;
         for (Long qq : group.getMemberIds()) {
             UserMemory user = userMemoryMap.get(qq);
             if (user != null && user.getTraits() != null && !user.getTraits().isEmpty()) {
-                if (!first) context.append(", ");
                 String nickname = user.getNicknameForGroup(groupId);
-                context.append(nickname).append("：").append(user.getTraits());
+                String entry = (first ? "" : "，") + nickname + "：" + user.getTraits();
+                if (used + entry.length() > budget) {
+                    truncated = true;
+                    break;
+                }
+                context.append(entry);
+                used += entry.length();
                 first = false;
             }
+        }
+        if (truncated) {
+            context.append(" …（更多成员画像已省略以控制上下文长度）");
         }
         return context.toString();
     }
@@ -260,7 +294,7 @@ public class LongTermMemoryManager {
             return "";
         }
         StringBuilder context = new StringBuilder();
-        context.append("# 关于这个用户你记得: ");
+        context.append("# 关于这个用户（以下为推测印象，可能不准，仅供参考，不要当作确定事实复述）: ");
         context.append(user.getNickname()).append("：").append(user.getTraits());
         return context.toString();
     }
