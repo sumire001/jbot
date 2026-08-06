@@ -114,4 +114,10 @@ com.bot.jone/
 
 ## 许可证
 
-暂无明确许可证，如需使用请先联系作者。
+本项目基于 **MIT 许可证** 开源。
+
+- 英文条款：[LICENSE](LICENSE)
+- 中文条款：[LICENSE.zh-CN](LICENSE.zh-CN)
+- 第三方组件许可证与版权声明：[THIRD-PARTY-LICENSES](THIRD-PARTY-LICENSES)
+
+版权所有 (c) 2026 sumire。
