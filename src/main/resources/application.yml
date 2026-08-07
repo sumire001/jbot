@@ -86,6 +86,16 @@ bot:
   # 词汇数据存储配置
   vocabulary:
     data-dir: ./data/vocabulary  # 词汇JSON文件存储目录
+  # 远程 git 仓库查询（JGit 直连 git 协议，默认不依赖平台 API）
+  git:
+    cache-dir: ./data/git-cache   # 浅克隆缓存目录（每个查询过的仓库存一份）
+    timeout-seconds: 30           # clone/fetch/ls-remote 网络超时（秒）
+    clone-depth: 20               # 浅克隆深度（决定 log 可回溯的历史条数 / 首次克隆体积）
+    default-repo:                 # 默认仓库地址；git_query 省略 repo 时使用（如 https://github.com/owner/repo.git）
+    username: git                # HTTPS 鉴权用户名（配合下方 token 作密码，任意非空即可）
+    token:                        # 私有库的个人访问令牌（PAT）；也可通过环境变量 GIT_TOKEN 注入，勿提交进仓库
+    issues-enabled: false        # issues 是平台概念、需调平台 API，默认关闭；true 且配 token 后生效
+    issues-max: 10               # issues 单次返回条数上限
 
 # Spring Boot Actuator 监控配置
 management:
