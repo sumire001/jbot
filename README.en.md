@@ -11,6 +11,8 @@ J-One is a QQ bot built upon **Spring Boot** and the **OneBot** protocol. It int
 - **Anime Image Search**: Integrates the Lolicon API to search and send anime images by keyword.
 - **Vocabulary Cards**: Save vocabulary/phrase data via API and push it to group or private chats.
 - **Command System**: Customizable command prefix and aliases, covering chat, images, memory management, and system settings.
+- **AI Tool Calling (Function Calling)**: Supports tools like web search and time lookup; the AI proactively calls them when an answer needs real-time or accurate facts, reducing hallucinations.
+- **Remote Git Repository Query**: Built-in `git_query` tool lets the AI actively inspect a remote repo's branches, tags, PR/MR, commit log, file content, and diff (via JGit talking the git protocol directly, with no platform API dependency by default).
 - **Web Admin Panel**: Login authentication, system monitoring, configuration hot-reload, and memory status viewing.
 - **Auto Maintenance**: Built-in scheduled tasks for temp file cleanup, old-session archiving, and periodic memory persistence.
 
@@ -29,6 +31,12 @@ Run Maven build in the project root:
 ```bash
 mvn clean package -DskipTests
 ```
+
+> **Tip**: On the first build, or if you hit a dependency resolution failure (e.g. `Could not resolve ... jgit`), add `-U` to force a dependency refresh:
+> ```bash
+> mvn -U clean package -DskipTests
+> ```
+> Stop the running J-One before rebuilding—on Windows the old `target/*.jar` is locked by the process, which makes the `clean` phase fail to delete it.
 
 ### 2. Configure Application
 
@@ -51,6 +59,16 @@ bot:
     model: "deepseek-chat"
     max-tokens: 1024
     temperature: 0.7
+    tools-enabled: true     # Enable tool calling (git_query / web search / time, etc.)
+    tool-max-rounds: 5      # Max tool loop rounds to prevent infinite loops
+    search-engine: "bing"   # Web search backend: bing (default, keyless in CN) / duckduckgo / baidu
+  git:
+    default-repo: "https://github.com/owner/repo.git"  # Default repo; used when git_query has no repo
+    # token: "your_pat"     # Personal access token for private repos; or env var GIT_TOKEN (preferred)
+    clone-depth: 20         # Shallow clone depth: how far back `log` can read
+    cache-dir: "data/git-cache"   # Clone cache dir (delete to force a fresh clone)
+    timeout-seconds: 30     # Network timeout (seconds)
+    issues-enabled: false   # issues is a platform concept; off by default (needs token + enabled)
   images:
     root-dir: ./data/images   # Image root directory
 ```
@@ -87,10 +105,19 @@ Access `http://localhost:3939/admin` to enter the management interface (login re
 - **`/history`** (`历史`): View recent conversation history.
 - **`/summary`** (`摘要`): Force a conversation summary (admin required).
 - **`/profile`** (`画像`): View user/group profile (admin required).
-- **`/clear-memory`** (`清空记忆`): Clear long-term memory (admin required).
+- **`/clear-memory`** (`清空记忆`): Clear long-term memory (profile, admin required). With no argument it also clears the current session; `all` clears every user/group profile and all sessions; a QQ number after it deletes only that user's profile.
 - **`/categories`** (`分类列表`): List image categories.
 - **`/peek`**: View the last browsed gallery.
 - **`/look`** (`看`): View a single image by index.
+
+### Git Repository Query (AI Tool)
+
+The built-in `git_query` tool (via JGit talking the git protocol directly, no platform API dependency by default) lets the AI proactively inspect a repo when a conversation touches its status, history, files, or changes—rather than guessing from memory.
+
+- Supported actions: `branches`, `tags`, `pr_list` (PR/MR), `log` (commits), `read_file`, `diff`, `issues` (opt-in).
+- Usage: just ask the bot in chat, e.g. "what did we commit recently", "read README.md", "what branches and PRs do we have".
+- This tool is **invoked automatically by the AI in conversation**; there is no standalone slash command. The repo comes from `bot.git.default-repo` or a URL you give.
+- Private repos require a personal access token in `bot.git.token` or the `GIT_TOKEN` environment variable.
 
 > Vocabulary cards are saved and pushed via the REST endpoint `/api/vocabulary`, not as a chat command.
 
@@ -98,7 +125,8 @@ Access `http://localhost:3939/admin` to enter the management interface (login re
 
 ```
 com.bot.jone/
-├── ai/            # AI chat, memory management, summarization
+├── ai/            # AI chat, memory management, summarization, tool calling (tool/)
+├── git/           # Remote Git repository query (JGit protocol)
 ├── auth/          # Web admin login authentication
 ├── client/        # OneBot API client
 ├── config/        # Config loading & hot-reload
@@ -114,4 +142,4 @@ com.bot.jone/
 
 ## License
 
-No explicit license yet. Contact the author before use.
+This project is open source under the **MIT License**.
