@@ -14,6 +14,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 @Service
 @Slf4j
@@ -99,6 +102,10 @@ public class AiService {
         StringBuilder systemPromptBuilder = new StringBuilder();
         systemPromptBuilder.append(promptManager.getSystemPrompt());
 
+        // 注入当前时间（北京时间，年月日时分秒）：让模型具备真实时间感，
+        // 解决时效性问题（如“X 发布了没”）误采信旧预览/旧闻而答错的 bug
+        systemPromptBuilder.append("\n\n# 当前时间（北京时间）：").append(getCurrentTimeString());
+
         if ("group".equals(messageType)) {
             String groupContext = longTermMemoryManager.getGroupContext(userId);
             if (!groupContext.isEmpty()) {
@@ -113,13 +120,16 @@ public class AiService {
 
         if (speaker != null && !speaker.isEmpty()) {
             StringBuilder speakerInfo = new StringBuilder();
-            speakerInfo.append("\n\n# 你正在和 ").append(speaker).append(" 对话");
-            speakerInfo.append("\n（这是你本来就认识的人，正常聊天即可；不要特意提起或复述对方的QQ号、ID、群号等标识，也不要像刚加上好友一样表演「记下你的资料」）");
+            speakerInfo.append("\n\n# 对话场景说明");
             if ("group".equals(messageType)) {
-                speakerInfo.append("\n# 当前是群聊场景");
+                speakerInfo.append("\n当前是群聊，群里有多个成员。历史消息中每条用户发言都以 [昵称]: 开头标明说话者，")
+                        .append("那些带不同昵称前缀的消息是别的成员说的，不要把别人之前做的事/说的话，")
+                        .append("误当成当前说话者 ").append(speaker).append(" 的行为。");
             } else {
-                speakerInfo.append("\n# 当前是私聊场景");
+                speakerInfo.append("\n当前是私聊。");
             }
+            speakerInfo.append("\n# 当前这条消息由 ").append(speaker).append(" 发出");
+            speakerInfo.append("\n（这是你本来就认识的人，正常聊天即可；不要特意提起或复述对方的QQ号、ID、群号等标识，也不要像刚加上好友一样表演「记下你的资料」）");
             systemPromptBuilder.append(speakerInfo);
         }
 
@@ -140,10 +150,26 @@ public class AiService {
             messages.addAll(history);
         }
 
+        // 当前用户消息必须标明说话者，与历史消息格式（[昵称]: ...）保持一致，
+        // 避免 bot 把历史中其他成员的行为误归因到当前说话者（群聊身份混淆 bug）
+        String currentUserContent = userMessage;
+        if (speaker != null && !speaker.isEmpty()) {
+            currentUserContent = "[" + speaker + "]: " + userMessage;
+        }
         messages.add(new JSONObject()
                 .fluentPut("role", "user")
-                .fluentPut("content", userMessage));
+                .fluentPut("content", currentUserContent));
         return messages;
+    }
+
+    /**
+     * 获取当前北京时间，格式 "yyyy-MM-dd HH:mm:ss"（年-月-日 时:分:秒）。
+     * 用于注入系统提示词，使模型在回答时效性问题时以真实当前时间为基准，
+     * 避免凭记忆或采信过时的预览/旧闻作答。
+     */
+    private String getCurrentTimeString() {
+        return ZonedDateTime.now(ZoneId.of("Asia/Shanghai"))
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
     /**
