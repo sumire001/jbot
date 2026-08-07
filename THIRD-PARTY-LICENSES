@@ -1,0 +1,103 @@
+# 第三方许可证与版权声明（Third-Party Licenses）
+
+本项目（J-One）自身以 MIT 许可证开源，见 [LICENSE](LICENSE) 与 [LICENSE.zh-CN](LICENSE.zh-CN)。
+
+本项目在构建与运行过程中使用了以下第三方开源组件，它们各自拥有独立的许可证。
+根据各许可证的要求，此处汇总其许可证信息以供归因（attribution）。
+本文件不构成对任何第三方权利的放弃或转让。
+
+> ⚠️ 说明：以下为直接依赖及主要传递依赖。完整、精确的依赖清单与版本请以构建产物为准，
+> 可通过 `mvn dependency:tree` 查看，或借助 `license-maven-plugin` 自动生成。
+
+---
+
+## 直接依赖
+
+### Spring Boot（含 spring-boot-starter-web / websocket / thymeleaf / actuator / test / devtools 等）
+- groupId: org.springframework.boot
+- 版本: 2.6.13（由 spring-boot-dependencies 统一管理）
+- 许可证: Apache License 2.0
+- 版权: Copyright 2012-2026 the original author or authors.
+- 文本: https://www.apache.org/licenses/LICENSE-2.0
+
+### fastjson2
+- groupId: com.alibaba.fastjson2
+- 版本: 2.0.40
+- 许可证: Apache License 2.0
+- 版权: Copyright 2013-2026 Alibaba Group
+- 文本: https://www.apache.org/licenses/LICENSE-2.0
+
+### Lombok
+- groupId: org.projectlombok
+- 许可证: The MIT License
+- 版权: Copyright (C) 2009-2026 The Project Lombok Authors
+- 文本: https://opensource.org/licenses/MIT
+
+### spring-boot-dependencies（BOM，仅用于依赖版本管理）
+- groupId: org.springframework.boot
+- 许可证: Apache License 2.0
+
+---
+
+## 主要传递依赖（节选）
+
+### Spring Framework（spring-core / spring-context / spring-web 等）
+- 许可证: Apache License 2.0
+- 版权: Copyright 2002-2026 the original author or authors.
+
+### Jackson（com.fasterxml.jackson）
+- 许可证: Apache License 2.0
+- 版权: Copyright 2007-2026 FasterXML, LLC
+
+### Thymeleaf
+- 许可证: Apache License 2.0
+- 版权: Copyright 2011-2026 The Thymeleaf Team
+
+### Apache Tomcat（内嵌容器，由 spring-boot-starter-web 引入）
+- 许可证: Apache License 2.0
+- 版权: Copyright 1999-2026 The Apache Software Foundation
+
+### SLF4J（org.slf4j）
+- 许可证: MIT License
+- 版权: Copyright (C) 2004-2026 QOS.ch
+
+### Logback（ch.qos.logback）
+- 许可证: Dual license — Eclipse Public License v1.0 (EPL) / GNU Lesser General Public License v2.1 (LGPL)
+- 版权: Copyright 1999-2026 QOS.ch
+- 说明: 弱 copyleft，仅以库形式链接/运行本项目不构成对 J-One 自身代码的 copyleft 义务。
+
+### Micrometer（由 spring-boot-starter-actuator 引入）
+- 许可证: Apache License 2.0
+- 版权: Copyright 2013-2026 VMware, Inc. or its affiliates
+
+---
+
+## 运行期外部服务（非代码依赖，仅说明）
+
+本项目在配置后可调用以下外部 API，其使用受各自服务条款约束，与本项目许可证无关：
+- OneBot 客户端（如 Go-CQHTTP / LLOneBot）：通过 WebSocket 接入的协议实现
+- DeepSeek API：商业 API，受 DeepSeek 服务条款约束
+- Lolicon API：第三方图片接口，受该服务使用条款约束
+
+---
+
+## 维护建议
+
+1. 版本升级后，上述许可证与版权年份可能变化，请以 `mvn dependency:tree` 输出为准更新本文件。
+2. 如需自动化生成，可在 pom.xml 中加入：
+
+   ```xml
+   <plugin>
+     <groupId>org.codehaus.mojo</groupId>
+     <artifactId>license-maven-plugin</artifactId>
+     <version>2.4.0</version>
+     <executions>
+       <execution>
+         <id>add-third-party</id>
+         <goals><goal>add-third-party</goal></goals>
+       </execution>
+     </executions>
+   </plugin>
+   ```
+
+   构建后会在 target 下生成 `THIRD-PARTY.txt`，可据此补全本文件。
