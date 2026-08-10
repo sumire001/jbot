@@ -17,6 +17,8 @@ import javax.websocket.CloseReason;
 import javax.websocket.server.ServerEndpoint;
 import java.io.File;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Slf4j
 @Component
@@ -24,6 +26,18 @@ import java.util.concurrent.CopyOnWriteArraySet;
 public class OneBotWebSocketHandler {
 
     private static final CopyOnWriteArraySet<Session> SESSIONS = new CopyOnWriteArraySet<>();
+
+    /**
+     * 消息处理线程池（单线程，保证消息顺序）。
+     * 关键：CommandHandler.handle() 内部可能调用 get_forward_msg 并同步等待回包，
+     * 若在 WebSocket 读线程上直接阻塞，会卡住后续帧（含回包本身）的接收 → 死锁。
+     * 故将消息处理搬到此独立线程，释放读线程以接收 API 回包；单线程则维持处理顺序。
+     */
+    private static final ExecutorService MESSAGE_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "jone-msg-handler");
+        t.setDaemon(true);
+        return t;
+    });
 
     /**
      * 获取所有活跃的WebSocket会话（供外部访问）
@@ -91,9 +105,13 @@ public class OneBotWebSocketHandler {
             // 先缓存消息（用于引用场景）
             JSONObject eventJson = JSON.parseObject(message);
             String postType = eventJson.getString("post_type");
-            // API 响应（如 send_msg 的 echo 回包）没有 post_type，直接跳过，
-            // 否则当成事件解析会抛出 JSONException（retcode/status 字段结构不一致）
+            // API 响应（如 get_forward_msg 的回包）没有 post_type，但带有 echo 字段，
+            // 需交给 ApiClient 按 echo 唤醒等待中的请求；不处理则会被静默丢弃，
+            // 导致 get_forward_msg 永远拿不到结果。其余无 post_type 也无 echo 的消息直接忽略。
             if (postType == null || postType.isEmpty()) {
+                if (eventJson.getString("echo") != null) {
+                    getApiClient().completePendingResponse(eventJson);
+                }
                 return;
             }
             if ("message".equals(postType)) {
@@ -105,9 +123,18 @@ public class OneBotWebSocketHandler {
             
             // 根据 post_type 分发到不同的处理器
             if ("message".equals(postType)) {
-                // 消息事件：交给 CommandHandler 处理
-                CommandHandler commandHandler = applicationContext.getBean(CommandHandler.class);
-                commandHandler.handle(event, session);
+                // 消息事件：异步提交到独立线程处理。
+                // 关键：handle() 内可能调用 get_forward_msg 并同步等待回包，
+                // 若直接在 WebSocket 读线程上阻塞，会卡住后续帧（含回包本身）的接收 → 死锁。
+                // 交由单线程执行器处理，既释放读线程、又保证消息顺序。
+                final OneBotEvent finalEvent = event;
+                MESSAGE_EXECUTOR.submit(() -> {
+                    try {
+                        applicationContext.getBean(CommandHandler.class).handle(finalEvent, session);
+                    } catch (Exception e) {
+                        log.error("消息处理异常(异步线程)", e);
+                    }
+                });
             } else if ("notice".equals(postType)) {
                 // 通知事件：处理戳一戳等
                 handleNoticeEvent(event, session);

@@ -18,6 +18,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Base64;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Component
@@ -25,6 +31,108 @@ public class OneBotApiClient {
 
     @org.springframework.beans.factory.annotation.Autowired
     private com.bot.jone.ioutils.ImageCompressor imageCompressor;
+
+    // ========== API 请求/响应关联（echo 机制）==========
+    // 用于 get_forward_msg 等需要同步拿回响应的场景：
+    // 每个请求带唯一 echo，OneBot 回包会原样带回 echo，据此唤醒对应的 CompletableFuture。
+    // 注意：普通发送类动作（send_msg 等）不携带 echo，仍保持 fire-and-forget，回包会被 onMessage 忽略。
+    private final Map<String, CompletableFuture<JSONObject>> pendingRequests = new ConcurrentHashMap<>();
+    private final AtomicLong echoCounter = new AtomicLong(System.currentTimeMillis());
+
+    /**
+     * 发送一个带 echo 的同步请求，返回可在响应到达时被唤醒的 Future。
+     * 调用方（如 getForwardMsg）用 future.get(timeout) 阻塞等待，由
+     * {@link #completePendingResponse(JSONObject)} 在收到回包时唤醒。
+     */
+    public CompletableFuture<JSONObject> sendRequest(Session session, String action, JSONObject params) {
+        String echo = "jone-" + echoCounter.incrementAndGet();
+        JSONObject req = new JSONObject();
+        req.put("action", action);
+        req.put("params", params != null ? params : new JSONObject());
+        req.put("echo", echo);
+
+        CompletableFuture<JSONObject> future = new CompletableFuture<>();
+        // 兜底清理：无论成功/失败/超时，future 终态后都从 pending 移除，避免内存泄漏
+        future.whenComplete((r, ex) -> pendingRequests.remove(echo));
+        pendingRequests.put(echo, future);
+
+        try {
+            sendSync(session, req.toJSONString());
+        } catch (IOException e) {
+            pendingRequests.remove(echo);
+            future.completeExceptionally(e);
+            log.error("发送 API 请求失败: action={}", action, e);
+        }
+        return future;
+    }
+
+    /**
+     * 获取合并转发消息内容（get_forward_msg）。
+     * 同步阻塞等待回包，超时返回 null（调用方据此降级为占位提示）。
+     * @param id 合并转发 id（LLOneBot 为字符串，原样传递，勿强转数值）
+     */
+    public JSONObject getForwardMsg(Session session, String id) {
+        JSONObject params = new JSONObject();
+        params.put("id", id);
+        try {
+            CompletableFuture<JSONObject> f = sendRequest(session, "get_forward_msg", params);
+            return f.get(5, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.warn("[forward] get_forward_msg 超时(5s): id={}", id);
+            return null;
+        } catch (Exception e) {
+            log.warn("[forward] get_forward_msg 失败: id={}, {}", id, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 同步获取单条消息详情（get_msg）。用于"回复/引用"场景：拿到被引用消息的 segment 数组，
+     * 若其中含 forward 段则进一步用 {@link #getForwardMsg} 展平。超时返回 null，由调用方降级。
+     *
+     * <p>注意：旧版 {@link #getMessage} 是 fire-and-forget（返回 null），此处改用 echo 同步等待，
+     * 才能在被 @bot 的消息处理线程里真正拿到被引用消息的正文。</p>
+     *
+     * @param session   WebSocket 会话
+     * @param messageId 消息 id（来自 reply 段的 data.id，整数）
+     */
+    public JSONObject getMsg(Session session, Integer messageId) {
+        if (messageId == null) return null;
+        JSONObject params = new JSONObject();
+        params.put("message_id", messageId);
+        try {
+            CompletableFuture<JSONObject> f = sendRequest(session, "get_msg", params);
+            return f.get(5, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.warn("[get_msg] 超时(5s): message_id={}", messageId);
+            return null;
+        } catch (Exception e) {
+            log.warn("[get_msg] 失败: message_id={}, {}", messageId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 由 WebSocket 接收线程在收到带 echo 的 API 回包时调用，按 echo 唤醒对应 Future。
+     * 处理 retcode != 0 的失败情况（以异常完成 Future）。
+     */
+    public void completePendingResponse(JSONObject response) {
+        if (response == null) return;
+        String echo = response.getString("echo");
+        if (echo == null) return;
+        CompletableFuture<JSONObject> future = pendingRequests.remove(echo);
+        if (future == null) {
+            return; // 没有等待中的请求（可能是非本组件发起的，或已超时清理）
+        }
+        Integer retcode = response.getInteger("retcode");
+        if (retcode != null && retcode != 0) {
+            future.completeExceptionally(
+                    new RuntimeException("OneBot API 返回错误 retcode=" + retcode
+                            + ", msg=" + response.getString("msg")));
+        } else {
+            future.complete(response);
+        }
+    }
 
     /**
      * 通过 WebSocket 发送文本消息

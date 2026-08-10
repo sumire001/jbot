@@ -34,6 +34,9 @@ public class CommandHandler {
     
     @Autowired
     private OneBotApiClient apiClient;
+
+    @Autowired
+    private ForwardMessageResolver forwardResolver;
     
     @Autowired
     private MemeManager memeManager;
@@ -94,7 +97,7 @@ public class CommandHandler {
             if (!aiConfig.isEnabled()) {
                 return;
             }
-            String question = extractTextAfterAt(event);
+            String question = buildAiQuestion(event, session);
             handleAiChat(event, session, question);
             return;
         }
@@ -499,6 +502,132 @@ public class CommandHandler {
         
         // 可选：发送确认消息
         // apiClient.sendText(session, "group", groupId, "已戳 " + event.getSender().getNickname());
+    }
+
+    /**
+     * 构造 @机器人 后的 AI 提问内容：提取 @bot 之后的文本，并把其中的合并转发段
+     * 递归展平为可读文本（支持多层嵌套转发）。此外，若消息"引用/回复"了某条消息，
+     * 会先把被引用消息的内容（含其中的合并转发）取回并作为上下文前置，
+     * 这样 AI 才能看到被引用的转发/文本，而不是只收到一句"总结一下这条转发消息"。
+     *
+     * <p>仅在此 @bot 路径触发 get_forward_msg / get_msg，避免对每条普通消息都发 API 调用（防滥用）。
+     * 未 @bot 之前的内容不纳入提问；reply 段则在判定 @bot 之前优先取回，保证引用上下文不丢失。</p>
+     *
+     * @param event   事件对象
+     * @param session WebSocket 会话（供解析器调用 get_forward_msg / get_msg）
+     * @return 提问文本（已 trim）
+     */
+    private String buildAiQuestion(OneBotEvent event, Session session) {
+        JSONArray messageArray = event.getMessage();
+        if (messageArray == null || messageArray.isEmpty()) {
+            return "";
+        }
+
+        Long selfId = event.getSelfId();
+        StringBuilder sb = new StringBuilder();
+        StringBuilder replyCtx = new StringBuilder();
+        boolean foundAtBot = false;
+
+        for (int i = 0; i < messageArray.size(); i++) {
+            JSONObject segment = messageArray.getJSONObject(i);
+            if (segment == null) continue;
+
+            String type = segment.getString("type");
+            JSONObject data = segment.getJSONObject("data");
+
+            // 引用/回复消息：无论是否 @bot，先把被引用内容取回作为上下文前置。
+            // 通常 reply 段位于消息最前，故在 foundAtBot 判定之前处理，避免被 continue 跳过。
+            if ("reply".equals(type) && data != null) {
+                Integer repliedId = data.getInteger("id");
+                if (repliedId != null) {
+                    String ctx = resolveReplyContext(repliedId, session);
+                    if (!ctx.isEmpty()) {
+                        replyCtx.append("【被引用的消息】\n").append(ctx).append("\n【/被引用的消息】\n");
+                    }
+                }
+                continue;
+            }
+
+            // 命中 @机器人：标记，后续内容才纳入提问
+            if ("at".equals(type) && data != null) {
+                Long atUserId = data.getLong("qq");
+                if (atUserId != null && selfId != null && atUserId.equals(selfId)) {
+                    foundAtBot = true;
+                }
+                continue;
+            }
+
+            if (!foundAtBot) {
+                continue;
+            }
+
+            if ("text".equals(type) && data != null) {
+                String content = data.getString("text");
+                if (content != null) {
+                    sb.append(content);
+                }
+            } else if ("forward".equals(type) && data != null) {
+                // 合并转发：递归展平（含嵌套转发），让 AI 真正"读得到"转发内容
+                String id = data.getString("id");
+                if (forwardResolver != null) {
+                    sb.append(forwardResolver.resolveForward(id, session));
+                } else {
+                    sb.append("[合并转发]");
+                }
+            } else if ("image".equals(type)) {
+                sb.append("[图片]");
+            }
+        }
+
+        String question = sb.toString().trim();
+        if (replyCtx.length() > 0) {
+            // 引用内容前置：先给 AI 看被引用的消息，再给用户的指令
+            return (replyCtx.toString() + question).trim();
+        }
+        return question;
+    }
+
+    /**
+     * 取回"被引用消息"的可读内容（含其中的合并转发），失败时返回空串（绝不抛异常）。
+     * 优先查本地缓存（仅含图片消息），未命中再走 get_msg API；回包的 data.message
+     * 再交给 ForwardMessageResolver 统一展平（文本/图片/嵌套 forward 等）。
+     *
+     * @param repliedId 被引用消息 id（reply 段的 data.id）
+     * @param session   WebSocket 会话（供 get_msg / 递归展平 forward 调用）
+     * @return 可读文本（已 trim），无内容或失败时为空串
+     */
+    private String resolveReplyContext(Integer repliedId, Session session) {
+        JSONObject msgResp = null;
+
+        // 1) 本地缓存快路（缓存只存图片消息；纯转发一般不在缓存，但零网络开销，聊胜于无）
+        JSONObject cached = messageCacheManager.getCachedMessage(repliedId);
+        if (cached != null) {
+            JSONArray cachedMsg = cached.getJSONArray("message");
+            if (cachedMsg != null) {
+                msgResp = new JSONObject();
+                JSONObject d = new JSONObject();
+                d.put("message", cachedMsg);
+                msgResp.put("data", d);
+            }
+        }
+
+        // 2) 未命中缓存：同步 get_msg 取回（注意 message_id 可能已超出缓存或从未被缓存）
+        if (msgResp == null) {
+            msgResp = apiClient.getMsg(session, repliedId);
+        }
+        if (msgResp == null) {
+            log.warn("[引用] get_msg 失败或未返回, message_id={}", repliedId);
+            return "";
+        }
+
+        JSONObject data = msgResp.getJSONObject("data");
+        if (data == null) return "";
+        JSONArray msg = data.getJSONArray("message");
+        if (msg == null) return "";
+
+        // 3) 统一展平（被引用消息本身可能就是合并转发，或正文中再嵌套转发）
+        String resolved = forwardResolver.resolveSegments(msg, session);
+        return resolved == null ? "" : resolved.trim();
     }
 
     /**
@@ -1084,48 +1213,6 @@ public class CommandHandler {
         }
 
         return false;
-    }
-
-    /**
-     * 提取at机器人后的文本内容
-     * @param event 事件对象
-     * @return at后的文本，如果没有则返回空字符串
-     */
-    private String extractTextAfterAt(OneBotEvent event) {
-        JSONArray messageArray = event.getMessage();
-        if (messageArray == null || messageArray.isEmpty()) {
-            return "";
-        }
-
-        Long selfId = event.getSelfId();
-        StringBuilder text = new StringBuilder();
-        boolean foundAtBot = false;
-
-        for (int i = 0; i < messageArray.size(); i++) {
-            JSONObject segment = messageArray.getJSONObject(i);
-            if (segment == null) continue;
-
-            String type = segment.getString("type");
-            JSONObject data = segment.getJSONObject("data");
-
-            if ("at".equals(type) && data != null) {
-                Long atUserId = data.getLong("qq");
-                if (atUserId != null && atUserId.equals(selfId)) {
-                    foundAtBot = true;
-                    continue; // 跳过at段，继续提取后面的文本
-                }
-            }
-
-            // 找到at机器人后，提取后续文本
-            if (foundAtBot && "text".equals(type) && data != null) {
-                String content = data.getString("text");
-                if (content != null) {
-                    text.append(content.trim());
-                }
-            }
-        }
-
-        return text.toString().trim();
     }
 
     /**
