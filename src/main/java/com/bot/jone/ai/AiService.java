@@ -138,7 +138,7 @@ public class AiService {
             systemPromptBuilder.append("\n\n# 工具使用指引\n")
                     .append("当回答需要实时或你不确定是否准确的事实信息（如当前时间、日期、最新资讯、具体数值、")
                     .append("技术文档等）时，应优先调用提供的工具查证，而不是凭记忆猜测。")
-                    .append("拿到工具结果后，用符合你毒舌人设的自然语言回答用户，不要在回复里堆砌原始 JSON 或工具参数。");
+                    .append("拿到工具结果后，用符合你人设的自然语言回答用户，不要在回复里堆砌原始 JSON 或工具参数。");
         }
 
         messages.add(new JSONObject()
