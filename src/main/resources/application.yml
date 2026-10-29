@@ -96,6 +96,47 @@ bot:
     token:                        # 私有库的个人访问令牌（PAT）；也可通过环境变量 GIT_TOKEN 注入，勿提交进仓库
     issues-enabled: false        # issues 是平台概念、需调平台 API，默认关闭；true 且配 token 后生效
     issues-max: 10               # issues 单次返回条数上限
+  # pjsk B30 查询（路线 C：直连数据源 + 绑定表 + 定数表 + HTML 截图）
+  sekai:
+    # 各服数据源 base URL：Haruki 工具箱「公有读」接口（公开读，无需 token）
+    #   GET https://suite-api.haruki.seiunx.com/public/{region}/suite/{uid}
+    #   支持 cn/jp/tw/kr/en 五服；{uid} 由玩家游戏内 9 位 ID 自动替换。
+    #   后续若要换自建 gameapi 后端，改这里即可（并视情况填 api-token）。
+    suite-api-url:
+      jp: https://suite-api.haruki.seiunx.com/public/jp/suite/{uid}
+      cn: https://suite-api.haruki.seiunx.com/public/cn/suite/{uid}
+      tw: https://suite-api.haruki.seiunx.com/public/tw/suite/{uid}
+      en: https://suite-api.haruki.seiunx.com/public/en/suite/{uid}
+      kr: https://suite-api.haruki.seiunx.com/public/kr/suite/{uid}
+    api-token:                    # Haruki 公有读无需 token；仅自建需要 Bearer 鉴权的后端才填；勿提交进仓库
+    default-mode: default        # 预留给自建后端（Haruki 公有读忽略此参数）
+    # 定数表来源（逗号分隔可填多个，后者覆盖前者）。支持三种形式：
+    #   - classpath:sekai/constants.csv  自托管 CSV（当前使用，随 jar 分发，断网可用）
+    #   - file:/abs/path/constants.csv   本地文件
+    #   - http(s)://...                  远程拉取（首次拉后落盘，断网可用）
+    # 也兼容历史 JSON（顶层平铺 "musicId:diff" -> 定数）。留空则跳过刷新。
+    # 自托管 CSV 说明（resources/sekai/constants.csv，159KB，2219 条）：
+    #   - 数据源自 pjskb30 社区定数表，经 Moesekai 镜像合并：
+    #       https://moe.exmeaning.com/data/pjskb30/merged_chart.csv
+    #   - 列：0 社区英文名, 1 JP原名, 2 定数, 3 等级(37+/APD 38), 4 物量, 5 难度, 6 songId, 7 中文曲名(sekai-i18n 合并)
+    #   - 更新方式：重新下载上面的 merged_chart.csv，用中文曲名补第 8 列后覆盖本文件即可
+    constant-url: classpath:sekai/constants.csv
+    constant-refresh-ms: 86400000 # 定数表刷新间隔（ms），默认 1 天
+    constants-updated-at: 2026-10-24  # 定数表数据日期（显示在图头部；更新 CSV 时同步改这里）
+    profile-cache-ttl-ms: 3600000 # profile 内存缓存 TTL（ms），默认 1 小时
+    data-dir: ./data/sekai       # 绑定表 / 定数表落盘目录
+    # ---- 曲绘封面（storage.exmeaning.com 的 pjsk assets 镜像，缩略图约 70KB）----
+    jacket-url-template: https://storage.exmeaning.com/sekai-{region}-assets/thumbnail/music_jacket/jacket_s_{id}.webp
+    jacket-cache-dir: ./data/sekai/jackets  # 封面磁盘缓存目录
+    jacket-timeout-ms: 8000      # 单张封面下载超时（ms）
+    jacket-parallelism: 8        # 封面并行下载线程数
+    # ---- B30 图片渲染（本地无头 Chromium，见 SekaiImageRenderer）----
+    render-width: 960            # 渲染图宽度(px)，6 列网格
+    # Android/Termux 部署：经 proot-distro 调 Debian 容器内的 chromium（Playwright 驱动在 bionic 上跑不了）
+    # 普通 Linux 部署：把下面置空，直接调用 PATH 里的 chromium
+    render-proot-bin: /data/data/com.termux/files/usr/bin/proot-distro
+    render-container: debian     # chromium 装在哪个 proot-distro 容器
+    render-temp-dir: ./data/sekai/render  # 渲染临时目录，需在 Termux home 下以便容器读写
 
 # Spring Boot Actuator 监控配置
 management:

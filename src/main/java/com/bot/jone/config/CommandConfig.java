@@ -50,7 +50,8 @@ public class CommandConfig {
             "clear-memory",
             "categories",
             "peek",
-            "look"
+            "look",
+            "ickb30"
     ));
 
     /**
@@ -90,6 +91,7 @@ public class CommandConfig {
         m.put("categories", "分类列表");
         m.put("peek", "peek");
         m.put("look", "look");
+        m.put("ickb30", "ickb30,b30,pjsk b30");
         DEFAULT_ALIASES = Collections.unmodifiableMap(m);
     }
 

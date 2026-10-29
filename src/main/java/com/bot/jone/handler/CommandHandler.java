@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 
 import javax.websocket.Session;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -79,6 +80,9 @@ public class CommandHandler {
 
     @Autowired
     private GalleryConfig galleryConfig;
+
+    @Autowired
+    private com.bot.jone.sekai.SekaiService sekaiService;
 
     private final Random random = new Random();
 
@@ -146,6 +150,8 @@ public class CommandHandler {
             handleGallery(event, session, commandBody);
         } else if (commandConfig.matches(commandBody, "look")) {
             handleLook(event, session, commandBody);
+        } else if (commandConfig.matches(commandBody, "ickb30")) {
+            handleB30(event, session, extractParams(commandBody, "ickb30").trim());
         }
     }
 
@@ -399,6 +405,83 @@ public class CommandHandler {
         if (!sent) {
             apiClient.sendText(session, msgType, targetId, "图片发送超时/失败（可能是单帧过大）");
         }
+    }
+
+    /**
+     * 处理 pjsk B30 查询 / 绑定命令。
+     *   /ickb30                          查主账号（默认 jp 服）
+     *   /ickb30 u2                        查第 2 个账号
+     *   /ickb30 cn                        查 cn 服
+     *   /ickb30 bind <游戏ID> [region] [main]  绑定
+     */
+    private void handleB30(OneBotEvent event, Session session, String params) {
+        String msgType = event.getMessageType();
+        Long targetId = "group".equals(msgType) ? event.getGroupId() : event.getUserId();
+
+        String[] tokens = params.isEmpty() ? new String[0] : params.split("\\s+");
+        if (tokens.length > 0 && "bind".equalsIgnoreCase(tokens[0])) {
+            handleB30Bind(event, session, targetId, msgType, tokens);
+            return;
+        }
+
+        String region = "jp";
+        int slot = 0;
+        for (String t : tokens) {
+            if (t.length() > 1 && t.charAt(0) == 'u' && Character.isDigit(t.charAt(1))) {
+                slot = Integer.parseInt(t.substring(1)) - 1;
+            } else if (Set.of("jp", "cn", "en", "tw", "kr").contains(t.toLowerCase())) {
+                region = t.toLowerCase();
+            }
+        }
+
+        final String fRegion = region;
+        final int fSlot = slot;
+        CompletableFuture.runAsync(() -> {
+            try {
+                byte[] png = sekaiService.makeB30Image(event.getUserId(), fRegion, fSlot);
+                if (png == null || png.length == 0) {
+                    apiClient.sendText(session, msgType, targetId,
+                            "B30 图片生成失败（数据源 / 定数表 / 本地渲染异常）");
+                    return;
+                }
+                File tmp = new File(imagesConfig.getTempDir(),
+                        "b30_" + event.getUserId() + "_" + System.currentTimeMillis() + ".png");
+                try (FileOutputStream fos = new FileOutputStream(tmp)) {
+                    fos.write(png);
+                }
+                boolean sent = apiClient.sendImageBase64(session, msgType, targetId, tmp);
+                if (!sent) {
+                    apiClient.sendText(session, msgType, targetId, "B30 图片发送超时/失败（可能是单帧过大）");
+                }
+            } catch (Exception e) {
+                log.error("[B30] 生成异常", e);
+                apiClient.sendText(session, msgType, targetId, "B30 生成失败：" + e.getMessage());
+            }
+        });
+    }
+
+    private void handleB30Bind(OneBotEvent event, Session session, Long targetId, String msgType, String[] tokens) {
+        Long gameUid = null;
+        String region = "jp";
+        boolean main = false;
+        for (int i = 1; i < tokens.length; i++) {
+            String t = tokens[i];
+            if (Set.of("jp", "cn", "en", "tw", "kr").contains(t.toLowerCase())) {
+                region = t.toLowerCase();
+            } else if ("main".equalsIgnoreCase(t)) {
+                main = true;
+            } else {
+                try { gameUid = Long.parseLong(t); } catch (NumberFormatException ignored) {}
+            }
+        }
+        if (gameUid == null) {
+            apiClient.sendText(session, msgType, targetId,
+                    "用法：" + commandConfig.getPrefix() + "ickb30 bind <游戏ID> [region] [main]");
+            return;
+        }
+        sekaiService.bind(event.getUserId(), region, 0, gameUid, main);
+        apiClient.sendText(session, msgType, targetId,
+                "已绑定 " + region + " 服游戏ID " + gameUid + (main ? "（主账号）" : ""));
     }
 
     private static boolean isGalleryImage(String name) {
