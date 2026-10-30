@@ -68,7 +68,7 @@ public class AiConfig {
     private boolean toolsEnabled = true;
     /** 工具循环最大轮数，防止模型反复调用工具陷入死循环 */
     private int toolMaxRounds = 5;
-    /** 网页搜索后端：bing（默认，国内推荐，免 key）/ duckduckgo（国外，国内常超时）/ baidu（反爬严） */
+    /** 网页搜索后端：bing（全球版，配合代理出国际结果）/ duckduckgo（国际，需代理，偶发限流）/ baidu（国内，反爬严）。可经 WebUI 热切换（无需重启） */
     private String searchEngine = "bing";
     /** 网页搜索返回结果条数上限 */
     private int searchMaxResults = 5;

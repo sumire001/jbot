@@ -79,16 +79,14 @@ const ThemeManager = {
         } else {
             sidebar.classList.remove('collapsed');
         }
+        // 同步到 body，供"收起后的唤出按钮"显隐与内容区留白使用
+        document.body.classList.toggle('sidebar-collapsed', collapsed);
 
         this.updateCollapseIcon(collapsed);
     },
 
     updateCollapseIcon(collapsed) {
-        const btn = document.getElementById('collapse-btn');
-        if (btn) {
-            btn.textContent = collapsed ? '→' : '←';
-            btn.title = collapsed ? '展开侧边栏' : '收起侧边栏';
-        }
+        // 折叠图标由 CSS 根据 .sidebar.collapsed 状态切换 Lucide 图标显隐，无需 JS 设置文字
     },
 
     toggleSidebar() {
@@ -112,6 +110,10 @@ const ThemeManager = {
 
 document.addEventListener('DOMContentLoaded', () => {
     ThemeManager.init();
+    // 将 <i data-lucide="..."> 渲染为精致 SVG 矢量图标（若有 Lucide 库）
+    if (window.lucide) {
+        lucide.createIcons();
+    }
 });
 
 window.ThemeManager = ThemeManager;

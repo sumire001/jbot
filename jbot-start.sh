@@ -1,0 +1,1 @@
+java -Dfile.encoding=utf-8 -Xmx156m -jar J-One-0.0.1-SNAPSHOT.jar

@@ -20,6 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -53,6 +54,15 @@ public class ConfigController {
 
     @Autowired
     private PermissionService permissionService;
+
+    @Autowired
+    private com.bot.jone.config.ProxyConfig proxyConfig;
+
+    @Autowired
+    private com.bot.jone.config.ModelManager modelManager;
+
+    @Autowired
+    private com.bot.jone.config.BaikeConfig baikeConfig;
 
     @Value("${bot.cache.message-max-size:100}")
     private int messageMaxSize;
@@ -88,6 +98,7 @@ public class ConfigController {
         ai.put("temperature", aiConfig.getTemperature());
         ai.put("timeoutSeconds", aiConfig.getTimeoutSeconds());
         ai.put("historyMaxContext", aiConfig.getHistoryMaxContext());
+        ai.put("searchEngine", aiConfig.getSearchEngine());
         // 系统提示词：优先用配置中的，否则用默认值
         String currentPrompt = aiConfig.getSystemPrompt();
         if (currentPrompt == null || currentPrompt.trim().isEmpty()) {
@@ -125,6 +136,23 @@ public class ConfigController {
         Map<String, Object> admin = new HashMap<>();
         admin.put("qqList", permissionService.getAdminList());
         result.put("admin", admin);
+
+        // 代理配置（password 不返回，避免明文回显；前端密码框留空表示不修改）
+        Map<String, Object> proxy = new HashMap<>();
+        proxy.put("enabled", proxyConfig.isEnabled());
+        proxy.put("type", proxyConfig.getType());
+        proxy.put("host", proxyConfig.getHost());
+        proxy.put("port", proxyConfig.getPort());
+        proxy.put("username", proxyConfig.getUsername());
+        proxy.put("nonProxyHosts", proxyConfig.getNonProxyHosts());
+        result.put("proxy", proxy);
+
+        // 百度百科（不回显明文 Key，只回是否已配置及来源 config/env/none）
+        Map<String, Object> baike = new HashMap<>();
+        baike.put("enabled", baikeConfig.isEnabled());
+        baike.put("configured", baikeConfig.resolveApiKey() != null);
+        baike.put("source", baikeConfig.apiKeySource());
+        result.put("baike", baike);
 
         return result;
     }
@@ -462,6 +490,170 @@ public class ConfigController {
             result.put("message", "管理员列表已更新并持久化");
         } catch (Exception e) {
             log.error("更新管理员配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新出站代理配置（热更新内存 + 持久化 + 重新安装 ProxySelector 立即生效）
+     * @param password 留空则不修改现有密码
+     */
+    @PostMapping("/proxy")
+    public Map<String, Object> updateProxy(
+            @RequestParam boolean enabled,
+            @RequestParam String type,
+            @RequestParam String host,
+            @RequestParam int port,
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String password,
+            @RequestParam String nonProxyHosts) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if (port < 1 || port > 65535) {
+                result.put("success", false);
+                result.put("message", "端口必须在 1-65535 之间");
+                return result;
+            }
+            if (!"http".equalsIgnoreCase(type) && !"https".equalsIgnoreCase(type) && !"socks".equalsIgnoreCase(type)) {
+                result.put("success", false);
+                result.put("message", "类型必须是 http / https / socks");
+                return result;
+            }
+            if (nonProxyHosts == null) nonProxyHosts = "";
+            hotReloadManager.updateProxyConfig(enabled, type, host, port, username, password, nonProxyHosts);
+            result.put("success", true);
+            result.put("message", "代理配置已更新并持久化，已热生效");
+        } catch (Exception e) {
+            log.error("更新代理配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新网页搜索后端（热更新，无需重启）
+     * @param engine 可选值：bing / duckduckgo / baidu
+     */
+    @PostMapping("/search-engine")
+    public Map<String, Object> updateSearchEngine(@RequestParam String engine) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            if (!"bing".equalsIgnoreCase(engine)
+                    && !"duckduckgo".equalsIgnoreCase(engine)
+                    && !"baidu".equalsIgnoreCase(engine)) {
+                result.put("success", false);
+                result.put("message", "搜索后端只能是 bing / duckduckgo / baidu");
+                return result;
+            }
+            hotReloadManager.updateSearchEngineConfig(engine);
+            result.put("success", true);
+            result.put("message", "搜索后端已切换为 " + engine + "（立即生效）");
+        } catch (Exception e) {
+            log.error("更新搜索后端失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 更新百度百科配置（热更新，无需重启）
+     * @param apiKey 留空则不修改（继续使用配置中已有的 Key 或环境变量 BAIDU_API_KEY）
+     */
+    @PostMapping("/baike")
+    public Map<String, Object> updateBaike(
+            @RequestParam boolean enabled,
+            @RequestParam(required = false) String apiKey) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            hotReloadManager.updateBaikeConfig(enabled, apiKey);
+            result.put("success", true);
+            result.put("message", "百度百科配置已更新并持久化");
+        } catch (Exception e) {
+            log.error("更新百度百科配置失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 获取模型管理状态：已配置模型（含本地就绪状态/缺失文件） + 可下载模型目录。
+     */
+    @GetMapping("/models")
+    public Map<String, Object> getModels() {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Map<String, Object>> configured = new ArrayList<>();
+            for (com.bot.jone.config.ModelManager.Entry e : modelManager.getEntries()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("key", e.getKey());
+                m.put("type", e.getType());
+                m.put("dim", e.getDim());
+                m.put("description", e.getDescription());
+                m.put("enabled", e.isEnabled());
+                m.put("autoDownload", e.isAutoDownload());
+                m.put("status", e.getStatus().name());
+                m.put("message", e.getMessage());
+                m.put("localDir", e.getLocalDir());
+                List<Map<String, Object>> files = new ArrayList<>();
+                for (com.bot.jone.config.ModelManager.ResolvedFile rf : e.getFiles()) {
+                    Map<String, Object> f = new LinkedHashMap<>();
+                    f.put("name", rf.getName());
+                    f.put("url", rf.getUrl());
+                    f.put("present", rf.isPresent());
+                    files.add(f);
+                }
+                m.put("files", files);
+                configured.add(m);
+            }
+            List<Map<String, Object>> catalogue = new ArrayList<>();
+            for (com.bot.jone.config.ModelCatalogue.ModelInfo info : com.bot.jone.config.ModelCatalogue.all()) {
+                Map<String, Object> c = new LinkedHashMap<>();
+                c.put("key", info.getKey());
+                c.put("type", info.getType());
+                c.put("dim", info.getDim());
+                c.put("description", info.getDescription());
+                c.put("recommendedLocalDir", info.getRecommendedLocalDir());
+                List<Map<String, Object>> cf = new ArrayList<>();
+                for (com.bot.jone.config.ModelCatalogue.FileInfo fi : info.getFiles()) {
+                    Map<String, Object> x = new LinkedHashMap<>();
+                    x.put("name", fi.getName());
+                    x.put("url", fi.getUrl());
+                    cf.add(x);
+                }
+                c.put("files", cf);
+                catalogue.add(c);
+            }
+            result.put("success", true);
+            result.put("configured", configured);
+            result.put("catalogue", catalogue);
+        } catch (Exception e) {
+            log.error("获取模型列表失败", e);
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 手动触发某个模型的下载（即使未开启 auto-download）。后台异步进行，立即返回已触发。
+     */
+    @PostMapping("/models/{key}/download")
+    public Map<String, Object> downloadModel(@PathVariable String key) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            CompletableFuture<Boolean> fut = modelManager.downloadAsync(key);
+            fut.whenComplete((ok, ex) -> {
+                if (ex != null) log.error("模型 {} 下载异常", key, ex);
+            });
+            result.put("success", true);
+            result.put("message", "已触发模型 " + key + " 的下载（后台进行，可在面板查看状态）");
+        } catch (Exception e) {
+            log.error("触发模型下载失败", e);
             result.put("success", false);
             result.put("message", e.getMessage());
         }

@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
     <title>表情包管理 - ichikaBot</title>
-    <link rel="stylesheet" href="/css/theme.css">
+    <link rel="stylesheet" href="/css/theme.css?v=20260815">
+    <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
     <style>
         /* 表情包管理页面特定样式 */
         .panel {
@@ -390,32 +392,60 @@
     <!-- 侧边导航栏 -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <img src="/favicon.png?v=1" class="sidebar-logo" alt="logo">
-            <span class="sidebar-title">ichikaBot</span>
+            <div class="sidebar-brand">
+                <img src="/favicon.png?v=1" class="sidebar-brand-logo" alt="ichikaBot">
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-logo-text">ichikaBot</span>
+                    <span class="sidebar-logo-sub">webui</span>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="收起侧边栏">
+                <svg class="nav-icon collapse-icon-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
+                <svg class="nav-icon collapse-icon-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+            </button>
         </div>
 
         <nav class="sidebar-nav">
+            <div class="nav-group-title">监控中心</div>
             <a href="/" class="nav-item">
-                <span class="nav-item-icon">📊</span>
-                <span>概览</span>
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                <span>概览 Dashboard</span>
             </a>
             <a href="/monitor-page" class="nav-item">
-                <span class="nav-item-icon">📈</span>
-                <span>实时监控</span>
+                <i data-lucide="activity" class="nav-icon"></i>
+                <span>实时监控 Monitor</span>
             </a>
-            <a href="/config-page" class="nav-item">
-                <span class="nav-item-icon">⚙️</span>
-                <span>配置管理</span>
+
+            <div class="nav-group-title">核心配置</div>
+            <a href="/command-page" class="nav-item">
+                <i data-lucide="terminal" class="nav-icon"></i>
+                <span>命令设置</span>
             </a>
+            <a href="/ai-models-page" class="nav-item">
+                <i data-lucide="cpu" class="nav-icon"></i>
+                <span>AI 模型配置</span>
+            </a>
+            <a href="/search-source-page" class="nav-item">
+                <i data-lucide="search" class="nav-icon"></i>
+                <span>搜索源管理</span>
+            </a>
+
+            <div class="nav-group-title">资源管理</div>
             <a href="/memes-page" class="nav-item active">
-                <span class="nav-item-icon">🖼️</span>
-                <span>表情包</span>
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>表情包列表</span>
+            </a>
+            <a href="/batch-upload-page" class="nav-item">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>批量上传</span>
+            </a>
+
+            <div class="nav-group-title">系统</div>
+            <a href="/general-settings-page" class="nav-item">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>通用设置</span>
             </a>
         </nav>
-
-        <div class="sidebar-footer">
-            <button class="collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()">←</button>
-        </div>
     </aside>
 
     <!-- 侧边栏遮罩 -->
@@ -424,7 +454,7 @@
     <!-- 顶部栏（移动端） -->
     <header class="topbar">
         <div class="topbar-left">
-            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()">☰</button>
+            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()"><i data-lucide="menu"></i></button>
             <img src="/favicon.png?v=1" class="topbar-logo" alt="logo">
             <span class="topbar-title">ichikaBot</span>
         </div>
@@ -432,6 +462,10 @@
             <button class="btn btn-secondary btn-sm" onclick="handleLogout()">登出</button>
         </div>
     </header>
+
+    <button class="sidebar-expand-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="展开侧边栏">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+    </button>
 
     <!-- 主内容区 -->
     <main class="main-content">
@@ -459,7 +493,7 @@
                     </div>
                 </div>
                 <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
-                    <div class="upload-icon">📁</div>
+                    <i data-lucide="upload" class="upload-icon" style="width:40px;height:40px"></i>
                     <div class="upload-text">点击或拖拽文件到此处上传</div>
                     <div class="upload-hint">支持 JPG, PNG, GIF, WEBP 等格式</div>
                     <input type="file" id="file-input" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
@@ -470,7 +504,7 @@
             <div class="panel">
                 <div class="panel-header">
                     <h2 class="panel-title">表情包列表</h2>
-                    <input type="text" class="form-input" placeholder="🔍 搜索文件名..." oninput="filterMemes(this.value)" style="min-width: 180px;">
+                    <input type="text" class="form-input" placeholder="搜索文件名..." oninput="filterMemes(this.value)" style="min-width: 180px;">
                 </div>
                 <div class="category-tabs" id="category-tabs"></div>
                 <div class="meme-grid" id="meme-grid"></div>
@@ -497,20 +531,24 @@
     <nav class="bottom-nav">
         <div class="bottom-nav-items">
             <a href="/" class="bottom-nav-item">
-                <span class="nav-icon">📊</span>
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
                 <span>概览</span>
             </a>
             <a href="/monitor-page" class="bottom-nav-item">
-                <span class="nav-icon">📈</span>
+                <i data-lucide="activity" class="nav-icon"></i>
                 <span>监控</span>
             </a>
-            <a href="/config-page" class="bottom-nav-item">
-                <span class="nav-icon">⚙️</span>
-                <span>配置</span>
-            </a>
             <a href="/memes-page" class="bottom-nav-item active">
-                <span class="nav-icon">🖼️</span>
+                <i data-lucide="image" class="nav-icon"></i>
                 <span>表情</span>
+            </a>
+            <a href="/batch-upload-page" class="bottom-nav-item">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>上传</span>
+            </a>
+            <a href="/general-settings-page" class="bottom-nav-item">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>设置</span>
             </a>
         </div>
     </nav>
@@ -596,9 +634,10 @@
 
             if (memes.length === 0) {
                 grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
-                    <div class="empty-icon">📭</div>
+                    <i data-lucide="inbox" class="empty-icon" style="width:48px;height:48px"></i>
                     <div>该分类下还没有表情包</div>
                 </div>`;
+                if (window.lucide) lucide.createIcons();
                 return;
             }
 
@@ -606,14 +645,15 @@
                 <div class="meme-card">
                     <img class="meme-image" src="${m.url}" loading="lazy">
                     <div class="meme-actions">
-                        <button class="meme-action-btn" title="删除" onclick="deleteMeme('${m.category}', '${m.name}')">🗑</button>
+                        <button class="meme-action-btn" title="删除" onclick="deleteMeme('${m.category}', '${m.name}')"><i data-lucide="trash-2" style="width:16px;height:16px"></i></button>
                     </div>
                     <div class="meme-info">
                         <div class="meme-name" title="${m.name}">${m.name}</div>
-                        <div class="meme-size">${m.sizeKB} KB</div>
-                    </div>
+                    <div class="meme-size">${m.sizeKB} KB</div>
                 </div>
-            `).join('');
+            </div>
+        `).join('');
+            if (window.lucide) lucide.createIcons();
         }
 
         function filterMemes(keyword) { searchKeyword = keyword; renderMemeGrid(); }

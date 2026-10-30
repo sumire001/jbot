@@ -41,6 +41,26 @@ public class AiService {
     private ToolExecutor toolExecutor;
 
     /**
+     * 工具使用指引：由 buildMessages 作为**独立 system 消息**插在"历史之后、当前消息之前"。
+     *
+     * 为什么不拼进最前面的系统提示词：实测（deepseek-v4-flash，"真实人设 + 含'我查不到'旧示范的历史"，
+     * 各 5 次采样）放在最前面时 baidu_baike 命中率只有 1/5 —— 会被强势人设和模型自己的历史回答压过去；
+     * 放到历史之后、问题之前则是 5/5。指令离当前问题越近越有效，不要挪回 systemPromptBuilder。
+     */
+    private static final String TOOLS_GUIDE =
+            "# 工具使用指引\n"
+            + "1) 遇到下面这类问题，必须先用工具查证再回答，不要凭记忆作答：\n"
+            + "   · 具体的专有名词、人名、机构、作品名、术语、地名、历史事件 → 用 baidu_baike\n"
+            + "   · 时效性信息：最新资讯、当下数值、近期发生的事 → 用 web_search\n"
+            + "   · 当前日期与时间 → 用 get_current_time\n"
+            + "   拿不准该不该查时，先查一遍再答，多花几秒也好过编造；不要因为一个名字看着生僻、"
+            + "像地名拼凑出来的、像虚构词，就断定它不存在——越是这种拿不准的，越必须先查了再开口。\n"
+            + "2) 严禁未查先认：只要你没有真正调用过工具，就不要说「我查不到」「没有相关信息」「我搜过了」"
+            + "这类话——那等于编造。只有工具真的返回「未收录/无结果」时，才可以如实说没查到，并说明查的是哪个来源。\n"
+            + "3) 日常闲聊（打招呼、接梗、玩笑、情绪回应、纯观点交流）不需要事实依据，直接正常聊天，不必调用工具。\n"
+            + "4) 拿到工具结果后，用符合你人设的自然语言回答，不要在回复里堆砌原始 JSON 或工具参数。";
+
+    /**
      * 发送对话请求
      * @param userId 用户ID（用于区分不同用户的历史）
      * @param messageType 消息类型：group 或 private
@@ -50,8 +70,6 @@ public class AiService {
      */
     public String chat(Long userId, String messageType, Long senderId, String userMessage, String speaker) {
         try {
-            log.info("{}用户【{}/{}】:{}", messageType, speaker, senderId, userMessage);
-
             // 构建消息上下文（系统提示 + 长期记忆 + 历史 + 当前问题）
             JSONArray messages = buildMessages(userId, messageType, speaker, userMessage);
 
@@ -134,12 +152,7 @@ public class AiService {
         }
 
         // 工具使用指引：仅在启用工具时注入，提示模型优先查证而非编造
-        if (aiConfig.isToolsEnabled()) {
-            systemPromptBuilder.append("\n\n# 工具使用指引\n")
-                    .append("当回答需要实时或你不确定是否准确的事实信息（如当前时间、日期、最新资讯、具体数值、")
-                    .append("技术文档等）时，应优先调用提供的工具查证，而不是凭记忆猜测。")
-                    .append("拿到工具结果后，用符合你人设的自然语言回答用户，不要在回复里堆砌原始 JSON 或工具参数。");
-        }
+        // （指引文本见 TOOLS_GUIDE，由下方在历史之后单独注入，勿在此拼进系统提示词）
 
         messages.add(new JSONObject()
                 .fluentPut("role", "system")
@@ -156,6 +169,15 @@ public class AiService {
         if (speaker != null && !speaker.isEmpty()) {
             currentUserContent = "[" + speaker + "]: " + userMessage;
         }
+        // 工具使用指引：作为独立 system 消息插在"历史之后、当前消息之前"。
+        // 位置很关键——放在最前面的系统提示词里会被强势人设与历史中模型自己的旧回答压过去（实测命中率 1/5），
+        // 挪到紧贴当前问题处后为 5/5。详见 TOOLS_GUIDE 的注释。
+        if (aiConfig.isToolsEnabled()) {
+            messages.add(new JSONObject()
+                    .fluentPut("role", "system")
+                    .fluentPut("content", TOOLS_GUIDE));
+        }
+
         messages.add(new JSONObject()
                 .fluentPut("role", "user")
                 .fluentPut("content", currentUserContent));
@@ -238,7 +260,14 @@ public class AiService {
                 String name = fn.getString("name");
                 String argsStr = fn.getString("arguments");
                 String result = toolExecutor.execute(name, argsStr);
-                log.info("[工具] 执行 {} 结果长度={}", name, result.length());
+                // 日志增强：记录工具参数与结果预览（超长截断，避免刷屏），
+                // 便于排查"调了什么工具 / 传了什么参数 / 返回了什么"
+                String argsPreview = (argsStr != null && argsStr.length() > 200)
+                        ? argsStr.substring(0, 200) + "..." : argsStr;
+                String resPreview = (result != null && result.length() > 200)
+                        ? result.substring(0, 200) + "..." : result;
+                log.info("[工具] 执行 {} | 参数={} | 结果长度={} | 结果预览={}",
+                        name, argsPreview, (result != null ? result.length() : 0), resPreview);
                 // 工具结果作为 tool 角色消息回填，与 tool_call_id 对应
                 messages.add(new JSONObject()
                         .fluentPut("role", "tool")

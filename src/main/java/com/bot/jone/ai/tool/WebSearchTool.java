@@ -21,12 +21,17 @@ import java.util.regex.Pattern;
  * 网页搜索工具：联网搜索以获取实时、准确的事实信息，弥补 LLM 知识截止与“凭记忆编造”的短板。
  *
  * 搜索引擎后端通过配置 bot.ai.tools.search-engine 选择：
- *   - bing（默认，推荐国内）：cn.bing.com，国内通常可达、反爬较松、解析稳定，免 key。
- *   - duckduckgo：html.duckduckgo.com，无需 API key，但国内网络通常不可达（易超时）。
+ *   - bing（全球版，推荐配合代理）：www.bing.com，免 key、解析稳定；直连国内会回重定向到 cn，
+ *     配合出站代理（ProxyConfig）经海外出口即可稳定返回国际/英文结果。
+ *   - duckduckgo：html.duckduckgo.com，无需 API key；直连国内通常不可达，需配合出站代理（ProxyConfig）使用，
+ *     可达后 HTML 端点对自动化访问偶发返回 HTTP 202（软限流/挑战），searchDuckDuckGo 已做重试兜底。
  *   - baidu：www.baidu.com，国内可达，但反爬极严、裸请求常被验证码拦截、解析结果不稳定。
  *
- * 以上均为“尽力而为”的免 key 方案；若你的网络环境都无法访问，请自备搜索 API 并扩展 engine。
+ * 以上均为"尽力而为"的免 key 方案；若你的网络环境都无法访问，请自备搜索 API 并扩展 engine。
  * 解析失败或反爬拦截时，会返回友好提示而非异常，交由 LLM 自行决定是否如实告知用户查不到。
+ *
+ * 代理感知：借助 ProxyConfig 的全局 ProxySelector，DuckDuckGo / 全球必应等需代理的引擎在
+ * 代理启用时返回国际结果；代理关闭时 resolveEngine() 会自动回退到国内可达的必应，搜索不硬失败。
  */
 @Slf4j
 @Component
@@ -34,6 +39,9 @@ public class WebSearchTool implements BotTool {
 
     @Autowired
     private com.bot.jone.ai.AiConfig aiConfig;
+
+    @Autowired
+    private com.bot.jone.config.ProxyConfig proxyConfig;
 
     @Override
     public String name() {
@@ -62,6 +70,26 @@ public class WebSearchTool implements BotTool {
         return params;
     }
 
+    /**
+     * 解析实际使用的搜索引擎，结合代理开关做运行时兜底：
+     * - 代理启用时，使用用户在配置中指定的引擎（国际/英文结果）。
+     * - 代理关闭时，DuckDuckGo 及未知引擎在国内直连不可达，自动回退到必应
+     *   （www.bing.com 在国内会被重定向到 cn.bing.com，仍返回结果），保证搜索不硬失败；
+     *   必应/百度本身国内可达，不受影响。
+     */
+    private String resolveEngine() {
+        String engine = aiConfig.getSearchEngine();
+        if (proxyConfig.isEnabled()) {
+            return engine;
+        }
+        boolean domesticReachable = "bing".equalsIgnoreCase(engine) || "baidu".equalsIgnoreCase(engine);
+        if (!domesticReachable) {
+            log.warn("[web_search] 代理未启用，引擎 [{}] 直连不可达，回退到必应（国内可达）", engine);
+            return "bing";
+        }
+        return engine;
+    }
+
     @Override
     public String execute(JSONObject args) {
         String query = args == null ? null : args.getString("query");
@@ -69,7 +97,7 @@ public class WebSearchTool implements BotTool {
             return "[参数缺失] web_search 需要 query 参数";
         }
         int maxResults = aiConfig.getSearchMaxResults();
-        String engine = aiConfig.getSearchEngine();
+        String engine = resolveEngine();
         try {
             if ("bing".equalsIgnoreCase(engine)) {
                 return searchBing(query, maxResults);
@@ -89,26 +117,40 @@ public class WebSearchTool implements BotTool {
 
     private String searchDuckDuckGo(String query, int maxResults) throws Exception {
         String url = "https://html.duckduckgo.com/html/?q=" + URLEncoder.encode(query, "UTF-8");
-        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-        conn.setRequestMethod("GET");
-        conn.setRequestProperty("User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36");
-        conn.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9");
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(15000);
-        int code = conn.getResponseCode();
-        if (code != 200) {
-            return "[搜索失败] DuckDuckGo 返回 HTTP " + code;
-        }
-        StringBuilder html = new StringBuilder();
-        try (BufferedReader r = new BufferedReader(
-                new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = r.readLine()) != null) {
-                html.append(line);
+        // DuckDuckGo 的 HTML 端点对自动化访问常返回 202（软限流/挑战），短暂重试通常可恢复；
+        // 借助代理出口时该端点可达，故这里只处理 202 这类瞬时失败，而非“网络不可达”。
+        int maxAttempts = 3;
+        long retryDelayMs = 800;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36");
+            conn.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9");
+            conn.setConnectTimeout(15000);
+            conn.setReadTimeout(15000);
+            int code = conn.getResponseCode();
+            if (code == 200) {
+                StringBuilder html = new StringBuilder();
+                try (BufferedReader r = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = r.readLine()) != null) {
+                        html.append(line);
+                    }
+                }
+                conn.disconnect();
+                return parseDuckDuckGo(html.toString(), maxResults);
+            }
+            conn.disconnect();
+            if (attempt < maxAttempts) {
+                log.warn("[web_search] DuckDuckGo 返回 HTTP {}（第 {} 次），{}ms 后重试", code, attempt, retryDelayMs);
+                Thread.sleep(retryDelayMs);
+            } else {
+                return "[搜索失败] DuckDuckGo 返回 HTTP " + code;
             }
         }
-        return parseDuckDuckGo(html.toString(), maxResults);
+        return "[搜索失败] DuckDuckGo 搜索未成功";
     }
 
     private String parseDuckDuckGo(String html, int maxResults) {
@@ -150,15 +192,15 @@ public class WebSearchTool implements BotTool {
         return ddgHref;
     }
 
-    // ---------------- 必应中国（无 key，国内推荐） ----------------
+    // ---------------- 必应全球版（无 key，配合代理出国际结果） ----------------
 
     private String searchBing(String query, int maxResults) throws Exception {
-        String url = "https://cn.bing.com/search?q=" + URLEncoder.encode(query, "UTF-8");
+        String url = "https://www.bing.com/search?q=" + URLEncoder.encode(query, "UTF-8");
         HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
         conn.setRequestMethod("GET");
         conn.setRequestProperty("User-Agent",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36");
-        conn.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9");
+        conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,zh-CN;q=0.8");
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(15000);
         int code = conn.getResponseCode();

@@ -18,7 +18,7 @@ public class WebUIController {
     }
 
     /**
-     * 主页
+     * 主页（概览 Dashboard）
      */
     @GetMapping({"/", "/index", "/webui", "/admin"})
     public String index() {
@@ -26,7 +26,7 @@ public class WebUIController {
     }
 
     /**
-     * 监控页
+     * 监控页（实时监控 Monitor）
      */
     @GetMapping("/monitor-page")
     public String monitorPage() {
@@ -34,18 +34,50 @@ public class WebUIController {
     }
 
     /**
-     * 配置管理页
+     * 命令设置页
      */
-    @GetMapping("/config-page")
-    public String configPage() {
-        return "config";
+    @GetMapping("/command-page")
+    public String commandPage() {
+        return "command";
     }
 
     /**
-     * Meme管理页
+     * AI 模型配置页（本地向量模型 + AI 聊天 API）
+     */
+    @GetMapping("/ai-models-page")
+    public String aiModelsPage() {
+        return "ai-models";
+    }
+
+    /**
+     * 搜索源管理页
+     */
+    @GetMapping("/search-source-page")
+    public String searchSourcePage() {
+        return "search-source";
+    }
+
+    /**
+     * Meme管理页（表情包列表）
      */
     @GetMapping("/memes-page")
     public String memesPage() {
         return "memes";
+    }
+
+    /**
+     * 批量上传页
+     */
+    @GetMapping("/batch-upload-page")
+    public String batchUploadPage() {
+        return "batch-upload";
+    }
+
+    /**
+     * 通用设置页（原 config 页拆分后的剩余配置）
+     */
+    @GetMapping("/general-settings-page")
+    public String generalSettingsPage() {
+        return "general-settings";
     }
 }

@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
+    <title>通用设置 - ichikaBot</title>
+    <link rel="stylesheet" href="/css/theme.css?v=20260815">
+    <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .config-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .config-panel-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .config-panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .config-panel-title::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: var(--gradient-1);
+            border-radius: 2px;
+        }
+
+        .config-panel-body {
+            padding: 20px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--accent-cyan);
+            margin-left: 8px;
+        }
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 15px;
+            transition: all 0.2s;
+            min-height: 44px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+
+        .form-textarea {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.6;
+            transition: all 0.2s;
+            resize: vertical;
+            min-height: 200px;
+            font-family: inherit;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-height: 44px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+            min-height: auto;
+            width: auto;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+        }
+
+        .switch input { display: none; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            transition: 0.3s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: '';
+            height: 22px;
+            width: 22px;
+            left: 2px;
+            bottom: 2px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .switch input:checked + .slider {
+            background: var(--gradient-1);
+            border-color: transparent;
+        }
+
+        .switch input:checked + .slider:before {
+            transform: translateX(24px);
+            background: #fff;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: calc(var(--navbar-height) + 16px);
+            right: 16px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            animation: fadeIn 0.3s ease;
+            min-width: 200px;
+        }
+
+        .toast.success { border-left: 4px solid var(--accent-green); }
+        .toast.error { border-left: 4px solid var(--accent-red); }
+        .toast.info { border-left: 4px solid var(--accent-cyan); }
+
+        @keyframes fadeIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .theme-radio-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .theme-radio {
+            padding: 14px;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .theme-radio:hover { border-color: var(--accent-cyan); }
+
+        .theme-radio.active {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 217, 255, 0.1);
+        }
+
+        .theme-radio-icon { font-size: 24px; margin-bottom: 4px; }
+        .theme-radio-label { font-size: 13px; color: var(--text-primary); }
+
+        /* --- 命令配置统一表格布局 --- */
+        .cmd-list-header {
+            display: flex;
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .cmd-row {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 14px;
+            transition: background 0.2s;
+        }
+        .cmd-row:hover { background: var(--bg-tertiary); }
+        .cmd-row:last-child { border-bottom: none; }
+        .col-cmd-name { flex: 2; min-width: 110px; }
+        .col-cmd-alias { flex: 3; min-width: 160px; }
+        .col-cmd-perm { width: 130px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .col-cmd-action { width: 56px; text-align: right; flex-shrink: 0; }
+        /* 权限 toggle 开关 (紧凑版) */
+        .switch-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+            user-select: none;
+            white-space: nowrap;
+        }
+        .switch-input { display: none; }
+        .switch-slider-sm {
+            position: relative;
+            width: 34px;
+            height: 20px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            margin-right: 6px;
+            transition: 0.3s;
+            flex-shrink: 0;
+        }
+        .switch-slider-sm:before {
+            content: "";
+            position: absolute;
+            height: 14px;
+            width: 14px;
+            left: 2px;
+            bottom: 2px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        .switch-input:checked + .switch-slider-sm {
+            background: var(--gradient-1);
+            border-color: transparent;
+        }
+        .switch-input:checked + .switch-slider-sm:before {
+            transform: translateX(14px);
+            background: #fff;
+        }
+        /* 删除按钮(文字式) */
+        .btn-del { 
+            background: none; color: var(--accent-red); border: none; 
+            cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .btn-del:hover { background: rgba(245,108,108,0.1); }
+        /* 添加行 */
+        .cmd-add-row {
+            display: flex;
+            gap: 14px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--border-color);
+            align-items: center;
+        }
+        .cmd-add-row .form-input { background: var(--bg-card); }
+        .btn-add {
+            background: var(--gradient-1); color: #fff; border: none;
+            padding: 9px 18px; border-radius: 8px; cursor: pointer;
+            font-size: 13px; font-weight: 500; transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-add:hover { opacity: 0.85; }
+
+        @media (max-width: 768px) {
+            .page-title { font-size: 22px; }
+            .config-panel { border-radius: 12px; }
+            .config-panel-body { padding: 16px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .btn { padding: 14px 20px; font-size: 16px; min-height: 48px; }
+            .form-input { padding: 14px; font-size: 16px; min-height: 48px; }
+            .toast-container { top: calc(var(--navbar-height) + 8px); right: 8px; }
+            .toast { min-width: 180px; font-size: 12px; padding: 8px 14px; }
+            .theme-radio-group { grid-template-columns: 1fr; }
+
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <img src="/favicon.png?v=1" class="sidebar-brand-logo" alt="ichikaBot">
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-logo-text">ichikaBot</span>
+                    <span class="sidebar-logo-sub">webui</span>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="收起侧边栏">
+                <svg class="nav-icon collapse-icon-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
+                <svg class="nav-icon collapse-icon-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-group-title">监控中心</div>
+            <a href="/" class="nav-item">
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                <span>概览 Dashboard</span>
+            </a>
+            <a href="/monitor-page" class="nav-item">
+                <i data-lucide="activity" class="nav-icon"></i>
+                <span>实时监控 Monitor</span>
+            </a>
+
+            <div class="nav-group-title">核心配置</div>
+            <a href="/command-page" class="nav-item">
+                <i data-lucide="terminal" class="nav-icon"></i>
+                <span>命令设置</span>
+            </a>
+            <a href="/ai-models-page" class="nav-item">
+                <i data-lucide="cpu" class="nav-icon"></i>
+                <span>AI 模型配置</span>
+            </a>
+            <a href="/search-source-page" class="nav-item">
+                <i data-lucide="search" class="nav-icon"></i>
+                <span>搜索源管理</span>
+            </a>
+
+            <div class="nav-group-title">资源管理</div>
+            <a href="/memes-page" class="nav-item">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>表情包列表</span>
+            </a>
+            <a href="/batch-upload-page" class="nav-item">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>批量上传</span>
+            </a>
+
+            <div class="nav-group-title">系统</div>
+            <a href="/general-settings-page" class="nav-item active">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>通用设置</span>
+            </a>
+        </nav>
+    </aside>
+
+    <div id="sidebar-overlay" onclick="ThemeManager.closeSidebar()"></div>
+
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()"><i data-lucide="menu"></i></button>
+            <img src="/favicon.png?v=1" class="topbar-logo" alt="logo">
+            <span class="topbar-title">ichikaBot</span>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-secondary btn-sm" onclick="handleLogout()">登出</button>
+        </div>
+    </header>
+
+    <button class="sidebar-expand-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="展开侧边栏">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+    </button>
+
+    <main class="main-content">
+        <div class="page-content">
+            <div class="page-header">
+                <div>
+                <h1 class="page-title">通用设置</h1>
+                <p class="page-subtitle">系统通用配置与参数调整</p>
+                </div>
+            </div>
+
+            <!-- 通用配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">通用配置 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">外观主题</label>
+                        <div class="theme-radio-group">
+                            <div class="theme-radio" data-theme="system" onclick="setGeneralTheme('system')">
+                                <i data-lucide="monitor" class="theme-radio-icon"></i>
+                                <div class="theme-radio-label">跟随系统</div>
+                            </div>
+                            <div class="theme-radio" data-theme="light" onclick="setGeneralTheme('light')">
+                                <i data-lucide="sun" class="theme-radio-icon"></i>
+                                <div class="theme-radio-label">浅色模式</div>
+                            </div>
+                            <div class="theme-radio" data-theme="dark" onclick="setGeneralTheme('dark')">
+                                <i data-lucide="moon" class="theme-radio-icon"></i>
+                                <div class="theme-radio-label">暗色模式</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 图片下载配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">图片下载配置 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">单张图片最大下载大小 (MB)</label>
+                        <input type="number" id="max-size-mb" class="form-input" min="1" max="100" value="10">
+                        <div class="form-hint">超过此大小的图片将被拒绝下载。范围: 1-100MB</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateDownload()">保存配置</button>
+                </div>
+            </div>
+
+            <!-- 图片压缩配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">图片压缩配置 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">压缩阈值 (MB)</label>
+                            <input type="number" id="comp-threshold" class="form-input" min="1" max="10" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">最大分辨率 (px)</label>
+                            <input type="number" id="comp-dimension" class="form-input" min="800" max="4000" value="1600">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">JPEG 质量</label>
+                            <input type="number" id="comp-quality" class="form-input" min="0.1" max="1.0" step="0.05" value="0.75">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">跳过 GIF</label>
+                            <label class="switch"><input type="checkbox" id="comp-skip-gif" checked><span class="slider"></span></label>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateCompression()">保存配置</button>
+                </div>
+            </div>
+
+
+
+            <!-- 画廊配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">画廊命令配置 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">启用画廊命令</label>
+                            <label class="switch"><input type="checkbox" id="gallery-enabled"><span class="slider"></span></label>
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">hcti 账号 user_id</label>
+                            <input type="text" id="gallery-api-user" class="form-input" placeholder="在 hcti.io 注册后获取">
+                            <div class="form-hint">Basic Auth 用户名（非密码，可明文填写）</div>
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">hcti API Key</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="password" id="gallery-api-key" class="form-input" placeholder="留空则不修改">
+                                <button class="btn btn-secondary btn-sm" type="button" onclick="toggleGalleryApiKeyVisibility()" style="white-space:nowrap;">显示</button>
+                            </div>
+                            <div class="form-hint">留空保存时不修改现有 Key</div>
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">渲染 API 地址</label>
+                            <input type="text" id="gallery-api-url" class="form-input" value="https://hcti.io/v1/image">
+                            <div class="form-hint">外部 HTML→图片 渲染服务地址（htmlcsstoimage / hcti.io）</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">每页列数</label>
+                            <input type="number" id="gallery-cols" class="form-input" min="1" max="20" value="6">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">每页行数</label>
+                            <input type="number" id="gallery-rows" class="form-input" min="1" max="30" value="7">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">渲染页宽(px)</label>
+                            <input type="number" id="gallery-width" class="form-input" min="300" max="2000" value="897">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">清晰度(1-3)</label>
+                            <input type="number" id="gallery-scale" class="form-input" min="1" max="3" value="1">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">缩略图最长边(px, 0=不缩放)</label>
+                            <input type="number" id="gallery-thumb-dim" class="form-input" min="0" max="2000" value="360">
+                            <div class="form-hint">内嵌前把图片缩放到此尺寸，控制 base64 体积与免费额度消耗</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateGallery()">保存配置</button>
+                </div>
+            </div>
+
+            <!-- AI系统提示词 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">AI 人格设定 <span class="badge">可热更新</span></h2>
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="resetSystemPrompt()" style="width:auto;">恢复默认</button>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">系统提示词 (System Prompt)</label>
+                        <textarea id="ai-system-prompt" class="form-textarea" placeholder="在这里定义AI的角色和行为..."></textarea>
+                        <div class="form-hint">修改后立即生效（热更新），并持久化到配置文件。最大 10000 字符。</div>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn btn-primary" onclick="updateSystemPrompt()" style="flex:1;">保存人格设定</button>
+                        <span class="form-hint" style="align-self:center;" id="prompt-count">0 字符</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 用户画像管理 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">用户画像管理 <span class="badge">可热更新</span></h2>
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="loadUserMemories()" style="width:auto;">刷新列表</button>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">查询用户画像（QQ号）</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="number" id="user-memory-qq" class="form-input" placeholder="输入QQ号查询">
+                            <button class="btn btn-secondary btn-sm" type="button" onclick="getUserMemory()">查询</button>
+                        </div>
+                    </div>
+                    
+                    <div id="user-memory-details" style="display:none;">
+                        <div class="form-group">
+                            <label class="form-label">昵称</label>
+                            <input type="text" id="user-memory-nickname" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">特征描述</label>
+                            <textarea id="user-memory-traits" class="form-textarea" placeholder="用逗号分隔多个特征，如：喜欢游戏，技术宅，爱吐槽"></textarea>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-primary" onclick="saveUserMemory()">保存画像</button>
+                            <button class="btn btn-secondary" onclick="deleteUserMemory()">删除画像</button>
+                            <button class="btn btn-secondary" onclick="hideUserMemoryDetails()">关闭</button>
+                        </div>
+                    </div>
+                    
+                    <div id="user-memory-list" style="margin-top:16px;">
+                        <div class="form-hint">暂无用户画像数据，点击刷新按钮加载</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 缓存配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">消息缓存配置 <span class="badge">需重启生效</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">消息缓存最大数量</label>
+                        <input type="number" id="msg-cache-size" class="form-input" min="10" max="1000" value="100">
+                        <div class="form-hint">LRU 缓存淘汰策略。范围: 10-1000</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateCache()">保存配置</button>
+                </div>
+            </div>
+
+            <!-- 代理配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">出站代理配置 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">启用代理</label>
+                            <label class="switch"><input type="checkbox" id="proxy-enabled"><span class="slider"></span></label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">类型</label>
+                            <select id="proxy-type" class="form-input">
+                                <option value="http">http</option>
+                                <option value="https">https</option>
+                                <option value="socks">socks</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">地址</label>
+                            <input type="text" id="proxy-host" class="form-input" placeholder="127.0.0.1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">端口</label>
+                            <input type="number" id="proxy-port" class="form-input" min="1" max="65535" placeholder="7890">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">用户名（匿名代理留空）</label>
+                            <input type="text" id="proxy-username" class="form-input" placeholder="留空表示匿名">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">密码</label>
+                            <input type="password" id="proxy-password" class="form-input" placeholder="留空则不修改">
+                            <div class="form-hint">留空保存时不修改现有密码</div>
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">不走代理的主机 (| 分隔，支持 *.domain)</label>
+                            <input type="text" id="proxy-nonhosts" class="form-input">
+                            <div class="form-hint">默认含 localhost/127.0.0.1/api.deepseek.com，使 DeepSeek 对话直连、工具走代理</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateProxy()">保存配置</button>
+                </div>
+            </div>
+
+
+
+            <!-- 管理员配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">管理员配置 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">管理员 QQ 列表（逗号 / 换行分隔）</label>
+                        <textarea id="admin-qq-list" class="form-textarea" style="min-height:90px;" placeholder="例如：123456, 654321"></textarea>
+                        <div class="form-hint">拥有最高权限的 QQ。修改后立即生效。</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateAdmin()">保存管理员配置</button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item active"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js"></script>
+    <script>
+        function showToast(msg, type='info') {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = 'toast ' + type;
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        function setGeneralTheme(theme) {
+            ThemeManager.setTheme(theme);
+            updateGeneralThemeUI();
+            showToast('主题已更新', 'success');
+        }
+
+        function updateGeneralThemeUI() {
+            const theme = ThemeManager.getTheme();
+            document.querySelectorAll('.theme-radio').forEach(el => {
+                el.classList.toggle('active', el.dataset.theme === theme);
+            });
+        }
+
+        async function loadConfig() {
+            try {
+                const res = await fetch('/api/config/all');
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('max-size-mb').value = json.imageDownload.maxSizeMb;
+                    document.getElementById('comp-threshold').value = json.imageCompression.sizeThresholdMb;
+                    document.getElementById('comp-dimension').value = json.imageCompression.maxDimension;
+                    document.getElementById('comp-quality').value = json.imageCompression.jpegQuality;
+                    document.getElementById('comp-skip-gif').checked = json.imageCompression.skipGif;
+                    // 画廊配置（画师图/画廊，归入通用设置）
+                    if (json.gallery) {
+                        document.getElementById('gallery-enabled').checked = json.gallery.enabled;
+                        document.getElementById('gallery-api-user').value = json.gallery.apiUser || '';
+                        document.getElementById('gallery-api-key').value = json.gallery.apiKey || '';
+                        document.getElementById('gallery-api-key').dataset.original = json.gallery.apiKey || '';
+                        document.getElementById('gallery-api-url').value = json.gallery.apiUrl || '';
+                        document.getElementById('gallery-api-url').dataset.original = json.gallery.apiUrl || '';
+                        document.getElementById('gallery-cols').value = json.gallery.cols;
+                        document.getElementById('gallery-rows').value = json.gallery.rows;
+                        document.getElementById('gallery-width').value = json.gallery.width;
+                        document.getElementById('gallery-scale').value = json.gallery.scale;
+                        document.getElementById('gallery-thumb-dim').value = json.gallery.thumbDim;
+                    }
+                    document.getElementById('msg-cache-size').value = json.cache.messageMaxSize;
+                    if (json.proxy) {
+                        document.getElementById('proxy-enabled').checked = json.proxy.enabled;
+                        document.getElementById('proxy-type').value = json.proxy.type || 'http';
+                        document.getElementById('proxy-host').value = json.proxy.host || '';
+                        document.getElementById('proxy-port').value = json.proxy.port || 7890;
+                        document.getElementById('proxy-username').value = json.proxy.username || '';
+                        document.getElementById('proxy-nonhosts').value = json.proxy.nonProxyHosts || '';
+                        // 密码不回显，前端密码框始终为空（提交留空表示不修改）
+                    }
+                    if (json.admin) {
+                        document.getElementById('admin-qq-list').value = (json.admin.qqList || []).join(', ');
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        // 渲染统一命令列表（别名 + 权限合并为表格行）
+        function renderCommandList(aliases, permissions) {
+            const container = document.getElementById('cmd-list-container');
+            container.innerHTML = '';
+            // 获取所有已知命令名（取 aliases 和 permissions 的并集）
+            const allCmds = new Set([...Object.keys(aliases || {}), ...Object.keys(permissions || {})]);
+            if (allCmds.size === 0) {
+                container.innerHTML = '<div class="form-hint" style="padding:12px 16px;">暂无命令配置，可在下方添加</div>';
+                return;
+            }
+            allCmds.forEach(cmd => {
+                const alias = aliases[cmd] || '';
+                const perm = !!(permissions || {})[cmd];
+                const row = document.createElement('div');
+                row.className = 'cmd-row';
+                row.dataset.cmd = cmd;
+                // 主命令名（只读）
+                const nameCol = document.createElement('div');
+                nameCol.className = 'col-cmd-name';
+                const nameInput = document.createElement('input');
+                nameInput.type = 'text';
+                nameInput.className = 'form-input cmd-cmd-name';
+                nameInput.value = cmd;
+                nameInput.readOnly = true;
+                nameInput.style.background = 'var(--bg-tertiary)';
+                nameInput.style.cursor = 'default';
+                nameCol.appendChild(nameInput);
+                // 别名（可编辑）
+                const aliasCol = document.createElement('div');
+                aliasCol.className = 'col-cmd-alias';
+                const aliasInput = document.createElement('input');
+                aliasInput.type = 'text';
+                aliasInput.className = 'form-input cmd-cmd-alias';
+                aliasInput.value = alias;
+                aliasInput.placeholder = '逗号分隔';
+                aliasCol.appendChild(aliasInput);
+                // 权限开关
+                const permCol = document.createElement('div');
+                permCol.className = 'col-cmd-perm';
+                const label = document.createElement('label');
+                label.className = 'switch-label';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'switch-input cmd-perm-cb';
+                cb.dataset.cmd = cmd;
+                cb.checked = perm;
+                const slider = document.createElement('span');
+                slider.className = 'switch-slider-sm';
+                const text = document.createElement('span');
+                text.textContent = '需管理';
+                if (cmd === 'enable') {
+                    text.textContent = '需管理';
+                    const hint = document.createElement('span');
+                    hint.style.cssText = 'color:var(--text-secondary);font-size:11px;margin-left:2px;';
+                    hint.title = '查看公开·修改需管理员';
+                    hint.textContent = '*';
+                    text.appendChild(hint);
+                }
+                label.appendChild(cb); label.appendChild(slider); label.appendChild(text);
+                permCol.appendChild(label);
+                // 删除按钮
+                const actionCol = document.createElement('div');
+                actionCol.className = 'col-cmd-action';
+                const delBtn = document.createElement('button');
+                delBtn.className = 'btn-del';
+                delBtn.textContent = '删除';
+                delBtn.onclick = () => row.remove();
+                actionCol.appendChild(delBtn);
+
+                row.appendChild(nameCol); row.appendChild(aliasCol);
+                row.appendChild(permCol); row.appendChild(actionCol);
+                container.appendChild(row);
+            });
+        }
+
+        function addCommandRow() {
+            const keyInput = document.getElementById('cmd-new-key');
+            const valInput = document.getElementById('cmd-new-value');
+            const key = keyInput.value.trim();
+            if (!key) { showToast('请输入新命令名', 'error'); return; }
+            // 检查重复
+            const existing = Array.from(document.querySelectorAll('.cmd-cmd-name')).map(i => i.value.trim());
+            if (existing.includes(key)) {
+                showToast(`命令 "${key}" 已存在`, 'error'); return;
+            }
+            const container = document.getElementById('cmd-list-container');
+            if (container.querySelector('.form-hint')) container.innerHTML = '';
+            const permChecked = document.getElementById('cmd-new-perm').checked;
+            // 复用 render 的行结构，手动插入一行
+            const row = document.createElement('div');
+            row.className = 'cmd-row';
+            row.dataset.cmd = key;
+
+            const nameCol = document.createElement('div'); nameCol.className = 'col-cmd-name';
+            const ni = document.createElement('input'); ni.type='text'; ni.className='form-input cmd-cmd-name'; ni.value=key; ni.readOnly=true; ni.style.background='var(--bg-tertiary)'; ni.style.cursor='default'; nameCol.appendChild(ni);
+
+            const aliasCol = document.createElement('div'); aliasCol.className = 'col-cmd-alias';
+            const ai = document.createElement('input'); ai.type='text'; ai.className='form-input cmd-cmd-alias'; ai.value=valInput.value.trim(); ai.placeholder='逗号分隔'; aliasCol.appendChild(ai);
+
+            const permCol = document.createElement('div'); permCol.className = 'col-cmd-perm';
+            const label = document.createElement('label'); label.className='switch-label';
+            const cb = document.createElement('input'); cb.type='checkbox'; cb.className='switch-input cmd-perm-cb'; cb.dataset.cmd=key; cb.checked=permChecked;
+            const sl = document.createElement('span'); sl.className='switch-slider-sm';
+            const tx = document.createElement('span'); tx.textContent='需管理';
+            label.appendChild(cb); label.appendChild(sl); label.appendChild(tx); permCol.appendChild(label);
+
+            const actCol = document.createElement('div'); actCol.className = 'col-cmd-action';
+            const db = document.createElement('button'); db.className='btn-del'; db.textContent='删除'; db.onclick=()=>row.remove(); actCol.appendChild(db);
+
+            row.appendChild(nameCol); row.appendChild(aliasCol); row.appendChild(permCol); row.appendChild(actCol);
+            container.appendChild(row);
+            keyInput.value = ''; valInput.value = ''; document.getElementById('cmd-new-perm').checked = false;
+        }
+
+        async function updateCommandConfig() {
+            const prefix = document.getElementById('cmd-prefix').value.trim();
+            if (!prefix) {
+                showToast('命令前缀不能为空', 'error');
+                return;
+            }
+            // 从统一表格收集数据
+            const nameInputs = document.querySelectorAll('.cmd-cmd-name');
+            const aliasInputs = document.querySelectorAll('.cmd-cmd-alias');
+            const aliases = {};
+            const seen = new Set();
+            for (let i = 0; i < nameInputs.length; i++) {
+                const k = nameInputs[i].value.trim();
+                const v = aliasInputs[i] ? aliasInputs[i].value.trim() : '';
+                if (!k) continue;
+                if (seen.has(k)) { showToast(`主命令名 "${k}" 重复`, 'error'); return; }
+                seen.add(k);
+                aliases[k] = v;
+            }
+            const permissions = {};
+            document.querySelectorAll('.cmd-perm-cb').forEach(cb => {
+                permissions[cb.dataset.cmd] = cb.checked;
+            });
+            try {
+                const res = await fetch('/api/config/command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prefix, aliases, permissions })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    showToast('命令配置已更新并持久化', 'success');
+                    loadCommandConfig();
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function loadCommandConfig() {
+            try {
+                const res = await fetch('/api/config/command');
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('cmd-prefix').value = json.prefix || '/';
+                    renderCommandList(json.aliases || {}, json.permissions || {});
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function updateDownload() {
+            try {
+                const res = await fetch(`/api/config/image-download?maxSizeMb=${document.getElementById('max-size-mb').value}`, { method: 'POST' });
+                const json = await res.json();
+                json.success ? showToast('下载配置已更新', 'success') : showToast('更新失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function updateCompression() {
+            const data = new URLSearchParams({
+                sizeThresholdMb: document.getElementById('comp-threshold').value,
+                maxDimension: document.getElementById('comp-dimension').value,
+                jpegQuality: document.getElementById('comp-quality').value,
+                skipGif: document.getElementById('comp-skip-gif').checked
+            });
+            try {
+                const res = await fetch('/api/config/image-compression?' + data, { method: 'POST' });
+                const json = await res.json();
+                json.success ? showToast('压缩配置已更新', 'success') : showToast('更新失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function updateAi() {
+            const data = new URLSearchParams({
+                enabled: document.getElementById('ai-enabled').checked,
+                apiUrl: document.getElementById('ai-api-url').value,
+                model: document.getElementById('ai-model').value,
+                maxTokens: document.getElementById('ai-tokens').value,
+                temperature: document.getElementById('ai-temp').value,
+                timeoutSeconds: document.getElementById('ai-timeout').value,
+                historyMaxContext: document.getElementById('ai-history').value
+            });
+            // 仅当用户修改了 API Key 时才提交
+            const keyInput = document.getElementById('ai-api-key');
+            const keyVal = keyInput.value;
+            if (keyVal && keyVal !== keyInput.dataset.original) {
+                data.append('apiKey', keyVal);
+            }
+            try {
+                const res = await fetch('/api/config/ai?' + data, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast('AI配置已更新并持久化', 'success');
+                    keyInput.dataset.original = keyVal;
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('ai-api-key');
+            const btn = event.target;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '隐藏';
+            } else {
+                input.type = 'password';
+                btn.textContent = '显示';
+            }
+        }
+
+        function toggleGalleryApiKeyVisibility() {
+            const input = document.getElementById('gallery-api-key');
+            const btn = event.target;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '隐藏';
+            } else {
+                input.type = 'password';
+                btn.textContent = '显示';
+            }
+        }
+
+        async function updateGallery() {
+            const data = new URLSearchParams({
+                enabled: document.getElementById('gallery-enabled').checked,
+                cols: document.getElementById('gallery-cols').value,
+                rows: document.getElementById('gallery-rows').value,
+                width: document.getElementById('gallery-width').value,
+                scale: document.getElementById('gallery-scale').value,
+                thumbDim: document.getElementById('gallery-thumb-dim').value
+            });
+            const userInput = document.getElementById('gallery-api-user');
+            const keyInput = document.getElementById('gallery-api-key');
+            if (userInput.value && userInput.value !== userInput.dataset.original) {
+                data.append('apiUser', userInput.value);
+            }
+            if (keyInput.value && keyInput.value !== keyInput.dataset.original) {
+                data.append('apiKey', keyInput.value);
+            }
+            // apiUrl 仅在用户改动时提交（默认与占位一致也视为未改）
+            const urlInput = document.getElementById('gallery-api-url');
+            if (urlInput.value && urlInput.value !== urlInput.dataset.original) {
+                data.append('apiUrl', urlInput.value);
+            }
+            try {
+                const res = await fetch('/api/config/gallery?' + data, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast('画廊配置已更新并持久化', 'success');
+                    userInput.dataset.original = userInput.value;
+                    keyInput.dataset.original = keyInput.value;
+                    urlInput.dataset.original = urlInput.value;
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        function updatePromptCount() {
+            const ta = document.getElementById('ai-system-prompt');
+            document.getElementById('prompt-count').textContent = (ta.value || '').length + ' 字符';
+        }
+
+        async function updateSystemPrompt() {
+            const prompt = document.getElementById('ai-system-prompt').value;
+            if (!prompt || !prompt.trim()) {
+                showToast('系统提示词不能为空', 'error');
+                return;
+            }
+            if (prompt.length > 10000) {
+                showToast('系统提示词长度不能超过10000字符', 'error');
+                return;
+            }
+            try {
+                const res = await fetch('/api/config/ai-system-prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ systemPrompt: prompt })
+                });
+                const json = await res.json();
+                json.success ? showToast('人格设定已更新并持久化', 'success') 
+                             : showToast('更新失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function resetSystemPrompt() {
+            if (!confirm('确定要恢复默认人格设定吗？当前修改会丢失。')) return;
+            try {
+                const res = await fetch('/api/config/ai-default-prompt');
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('ai-system-prompt').value = json.systemPrompt;
+                    updatePromptCount();
+                    showToast('已恢复默认人格，请点击保存按钮确认', 'info');
+                } else {
+                    showToast('获取默认提示词失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function updateCache() {
+            try {
+                const res = await fetch(`/api/config/cache?messageMaxSize=${document.getElementById('msg-cache-size').value}`, { method: 'POST' });
+                const json = await res.json();
+                json.success ? showToast(json.message, 'success') : showToast('更新失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function updateProxy() {
+            const data = new URLSearchParams({
+                enabled: document.getElementById('proxy-enabled').checked,
+                type: document.getElementById('proxy-type').value,
+                host: document.getElementById('proxy-host').value,
+                port: document.getElementById('proxy-port').value,
+                username: document.getElementById('proxy-username').value,
+                nonProxyHosts: document.getElementById('proxy-nonhosts').value
+            });
+            // 仅当用户填写了密码才提交（留空表示不修改现有密码）
+            const pwd = document.getElementById('proxy-password').value;
+            if (pwd) data.append('password', pwd);
+            try {
+                const res = await fetch('/api/config/proxy?' + data, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast('代理配置已更新并热生效', 'success');
+                    document.getElementById('proxy-password').value = '';
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function updateSearchEngine() {
+            const engine = document.getElementById('search-engine').value;
+            try {
+                const res = await fetch('/api/config/search-engine?engine=' + encodeURIComponent(engine), { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast(json.message, 'success');
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function loadUserMemories() {
+            try {
+                const res = await fetch('/api/config/long-term-memory/users');
+                const json = await res.json();
+                if (json.success) {
+                    const list = document.getElementById('user-memory-list');
+                    if (json.users && json.users.length > 0) {
+                        list.innerHTML = '<div class="form-hint">用户画像列表（点击查看详情）</div>';
+                        json.users.forEach(user => {
+                            const item = document.createElement('div');
+                            item.style.cssText = 'padding:10px;background:var(--bg-tertiary);border-radius:8px;margin-bottom:8px;cursor:pointer;border:1px solid var(--border-color);transition:all 0.2s;';
+                            item.onmouseover = () => item.style.borderColor = 'var(--accent-cyan)';
+                            item.onmouseout = () => item.style.borderColor = 'var(--border-color)';
+                            item.onclick = () => {
+                                document.getElementById('user-memory-qq').value = user.qq;
+                                getUserMemory();
+                            };
+                            item.innerHTML = `<div style="font-weight:600;color:var(--text-primary);">${user.nickname || '未知'} (${user.qq})</div>
+                                <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${user.traits || '暂无特征'}</div>`;
+                            list.appendChild(item);
+                        });
+                    } else {
+                        list.innerHTML = '<div class="form-hint">暂无用户画像数据</div>';
+                    }
+                } else {
+                    showToast('加载失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function getUserMemory() {
+            const qq = document.getElementById('user-memory-qq').value;
+            if (!qq) {
+                showToast('请输入QQ号', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(`/api/config/long-term-memory/users/${qq}`);
+                const json = await res.json();
+                if (json.success) {
+                    document.getElementById('user-memory-nickname').value = json.nickname || '';
+                    document.getElementById('user-memory-traits').value = json.traits || '';
+                    document.getElementById('user-memory-details').style.display = 'block';
+                } else {
+                    document.getElementById('user-memory-details').style.display = 'block';
+                    document.getElementById('user-memory-nickname').value = '';
+                    document.getElementById('user-memory-traits').value = '';
+                    showToast('未找到该用户画像，可创建新画像', 'info');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        function hideUserMemoryDetails() {
+            document.getElementById('user-memory-details').style.display = 'none';
+            document.getElementById('user-memory-qq').value = '';
+        }
+
+        async function saveUserMemory() {
+            const qq = document.getElementById('user-memory-qq').value;
+            const nickname = document.getElementById('user-memory-nickname').value;
+            const traits = document.getElementById('user-memory-traits').value;
+            if (!qq) {
+                showToast('请输入QQ号', 'error');
+                return;
+            }
+            try {
+                const res = await fetch(`/api/config/long-term-memory/users/${qq}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nickname, traits })
+                });
+                const json = await res.json();
+                json.success ? showToast('画像已保存', 'success') : showToast('保存失败: ' + json.message, 'error');
+                if (json.success) {
+                    loadUserMemories();
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function deleteUserMemory() {
+            const qq = document.getElementById('user-memory-qq').value;
+            if (!confirm(`确定要删除用户 ${qq} 的画像吗？`)) return;
+            try {
+                const res = await fetch(`/api/config/long-term-memory/users/${qq}`, { method: 'DELETE' });
+                const json = await res.json();
+                json.success ? showToast('画像已删除', 'success') : showToast('删除失败: ' + json.message, 'error');
+                if (json.success) {
+                    hideUserMemoryDetails();
+                    loadUserMemories();
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function handleLogout() {
+            try {
+                const res = await fetch('/api/auth/logout', { method: 'POST' });
+                if (res.ok) window.location.href = '/login';
+            } catch (e) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const json = await res.json();
+                if (!json.authenticated) window.location.href = '/login';
+            } catch (e) {}
+        }
+
+        async function updateAdmin() {
+            const raw = document.getElementById('admin-qq-list').value;
+            const qqList = raw.split(/[\s,，]+/).map(s => s.trim()).filter(s => s.length > 0)
+                .map(s => Number(s)).filter(n => Number.isInteger(n) && n > 0);
+            if (qqList.length === 0) {
+                showToast('请至少填写一个有效 QQ', 'error');
+                return;
+            }
+            try {
+                const res = await fetch('/api/config/admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ qqList })
+                });
+                const json = await res.json();
+                json.success ? showToast('管理员配置已更新', 'success') : showToast('更新失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/config/models');
+                const json = await res.json();
+                if (!json.success) { showToast('加载模型失败: ' + json.message, 'error'); return; }
+                renderModels(json.configured || [], json.catalogue || []);
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        function statusBadge(status) {
+            const color = {
+                READY: 'var(--accent-green)', MISSING: 'var(--accent-red)',
+                DOWNLOADING: 'var(--accent-cyan)', ERROR: 'var(--accent-red)',
+                DISABLED: 'var(--text-secondary)'
+            }[status] || 'var(--text-secondary)';
+            return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;border:1px solid ${color};color:${color};">${status}</span>`;
+        }
+
+        function renderModels(configured, catalogue) {
+            const list = document.getElementById('model-list');
+            list.innerHTML = '';
+            if (!configured.length) {
+                list.innerHTML = '<div class="form-hint">未配置任何模型（在 bot.models.models 中添加 key 即可）。</div>';
+            }
+            configured.forEach(m => {
+                const card = document.createElement('div');
+                card.style.cssText = 'padding:14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;margin-bottom:12px;';
+                const missing = (m.files || []).filter(f => !f.present);
+                const fileRows = (m.files || []).map(f =>
+                    `<div style="font-size:12px;display:flex;gap:8px;align-items:center;">
+                        <span style="color:${f.present ? 'var(--accent-green)' : 'var(--accent-red)'};">${f.present ? '✔' : '✘'}</span>
+                        <span style="color:var(--text-primary);">${f.name}</span>
+                    </div>`).join('');
+                card.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <div><b style="color:var(--text-primary);">${m.key}</b>
+                            <span style="color:var(--text-secondary);font-size:12px;">（${m.type}，维度 ${m.dim || 'N/A'}）</span></div>
+                        ${statusBadge(m.status)}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">${m.message || ''}</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">本地目录：<code>${m.localDir}</code></div>
+                    ${fileRows}
+                    ${missing.length ? `<button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="downloadModel('${m.key}')">下载缺失文件（${missing.length}）</button>` : ''}
+                `;
+                list.appendChild(card);
+            });
+
+            const cat = document.getElementById('model-catalogue');
+            cat.innerHTML = '';
+            catalogue.forEach(c => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;margin-bottom:10px;';
+                const files = (c.files || []).map(f =>
+                    `<div style="font-size:11px;color:var(--text-secondary);word-break:break-all;">• ${f.name} — <a href="${f.url}" target="_blank" style="color:var(--accent-cyan);">${f.url}</a></div>`).join('');
+                item.innerHTML = `
+                    <div style="margin-bottom:4px;"><b style="color:var(--text-primary);">${c.key}</b>
+                        <span style="color:var(--text-secondary);font-size:12px;">（${c.type}，维度 ${c.dim || 'N/A'}）</span></div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${c.description || ''}</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">建议本地目录：<code>${c.recommendedLocalDir}</code></div>
+                    ${files}
+                `;
+                cat.appendChild(item);
+            });
+        }
+
+        async function downloadModel(key) {
+            try {
+                const res = await fetch(`/api/config/models/${encodeURIComponent(key)}/download`, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast(json.message, 'success');
+                    setTimeout(loadModels, 1500);
+                } else {
+                    showToast('触发失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        checkAuth();
+        loadConfig();
+        updateGeneralThemeUI();
+        document.getElementById('ai-system-prompt').addEventListener('input', updatePromptCount);
+    </script>
+</body>
+</html>

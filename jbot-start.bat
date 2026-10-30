@@ -8,5 +8,5 @@ call mvn clean package -DskipTests=true
 echo.
 echo [信息] 打包完成，正在启动服务...
 echo.
-java -Dfile.encoding=utf-8 -Xmx256m -jar target/J-One-0.0.1-SNAPSHOT.jar
+java -Dfile.encoding=utf-8 -Xmx156m -jar target/J-One-0.0.1-SNAPSHOT.jar
 pause

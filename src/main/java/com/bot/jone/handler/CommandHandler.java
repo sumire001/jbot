@@ -88,18 +88,33 @@ public class CommandHandler {
     public void handle(OneBotEvent event, Session session) {
         // 提取消息内容（支持多种类型）
         // trim 用于消除引用/at 段被跳过后的前导空格，避免前缀校验误判
+        log.info("调试日志：{}",event);
         String content = extractMessageContent(event.getMessage()).trim();
         //打印聊天日志
         log.info("[{}]{}/{}:{}", event.getGroupId(), event.getUserId(), event.getSender().getNickname(), content);
         
-        // 优先处理 @机器人（AI聊天，不需要命令前缀）
-        if (isAtBot(event)) {
-            if (!aiConfig.isEnabled()) {
+        // 私聊没有 @机器人 概念，每条消息默认就是发给 bot 的：
+        // 带命令前缀的走命令逻辑，其余一律当 AI 提问触发对话。
+        boolean isPrivate = !"group".equals(event.getMessageType());
+        if (isPrivate) {
+            if (!commandConfig.hasPrefix(content)) {
+                if (aiConfig.isEnabled()) {
+                    String question = buildAiQuestion(event, session);
+                    handleAiChat(event, session, question);
+                }
                 return;
             }
-            String question = buildAiQuestion(event, session);
-            handleAiChat(event, session, question);
-            return;
+            // 带命令前缀 → 落到下方命令分支处理
+        } else {
+            // 群聊：优先处理 @机器人（AI聊天，不需要命令前缀）
+            if (isAtBot(event)) {
+                if (!aiConfig.isEnabled()) {
+                    return;
+                }
+                String question = buildAiQuestion(event, session);
+                handleAiChat(event, session, question);
+                return;
+            }
         }
 
         // 所有命令必须以配置的前缀开头
@@ -526,7 +541,8 @@ public class CommandHandler {
         Long selfId = event.getSelfId();
         StringBuilder sb = new StringBuilder();
         StringBuilder replyCtx = new StringBuilder();
-        boolean foundAtBot = false;
+        // 私聊没有 @bot 段，整条消息即提问；群聊需命中 @bot 后内容才纳入
+        boolean foundAtBot = !"group".equals(event.getMessageType());
 
         for (int i = 0; i < messageArray.size(); i++) {
             JSONObject segment = messageArray.getJSONObject(i);
@@ -638,14 +654,12 @@ public class CommandHandler {
         if (question == null || question.trim().isEmpty()) {
             apiClient.sendText(session, event.getMessageType(),
                 "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId(),
-                "请输入你的问题，例如：ai: 你好");
+                "...");
             return;
         }
 
         Long sessionId = "group".equals(event.getMessageType()) ? event.getGroupId() : event.getUserId();
         Long targetId = sessionId;
-
-        log.info("[AI] 用户提问: {}", question);
 
         String speaker = resolveSpeaker(event);
 

@@ -13,6 +13,7 @@ import javax.websocket.Session;
 import javax.websocket.OnOpen;
 import javax.websocket.OnMessage;
 import javax.websocket.OnClose;
+import javax.websocket.OnError;
 import javax.websocket.CloseReason;
 import javax.websocket.server.ServerEndpoint;
 import java.io.File;
@@ -94,6 +95,24 @@ public class OneBotWebSocketHandler {
         log.info("❌ WebSocket 连接断开 - Session ID: {}, 原因: {}", 
                  session.getId(), closeReason);
         log.info("当前在线连接数: {}", SESSIONS.size());
+    }
+
+    @OnError
+    public void onError(Session session, Throwable throwable) {
+        // 对端(云端 OneBot 客户端)异常断开/网络抖动会触发 EOFException，并被包装为
+        // WebSocket 1006 异常关闭码 —— 这是正常的网络层事件，并非业务异常。
+        // 关键：若不配置 @OnError，Tomcat 的 PojoEndpointBase 会打印整页 ERROR 堆栈
+        // ("No error handling configured ...") 噪音；此处降级为可控日志。
+        String sessionId = (session != null) ? session.getId() : "?";
+        if (throwable instanceof java.io.EOFException) {
+            log.info("⚠️ WebSocket 连接被对端异常关闭(网络中断/客户端重启) - Session ID: {}, 1006", sessionId);
+        } else {
+            log.warn("⚠️ WebSocket 连接错误 - Session ID: {}, 原因: {}",
+                    sessionId, throwable.getMessage(), throwable);
+        }
+        if (session != null) {
+            SESSIONS.remove(session);
+        }
     }
     
     

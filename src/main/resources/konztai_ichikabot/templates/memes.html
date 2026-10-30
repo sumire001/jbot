@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
+    <title>表情包管理 - ichikaBot</title>
+    <link rel="stylesheet" href="/css/theme.css?v=20260815">
+    <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <style>
+        /* 表情包管理页面特定样式 */
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+        }
+
+        .panel-title::before {
+            content: '';
+            width: 3px;
+            height: 16px;
+            background: var(--gradient-1);
+            border-radius: 2px;
+        }
+
+        .stat-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 14px;
+            min-width: 100px;
+        }
+
+        .stat-num {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .category-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+
+        .category-tab {
+            padding: 6px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .category-tab.active {
+            background: var(--gradient-1);
+            color: #fff;
+            border-color: transparent;
+        }
+
+        .category-tab .count {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 6px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        .meme-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .meme-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .meme-card:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .meme-image {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+            display: block;
+            background: var(--bg-primary);
+        }
+
+        .meme-info {
+            padding: 8px 10px;
+        }
+
+        .meme-name {
+            font-size: 12px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .meme-size {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .meme-actions {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .meme-card:hover .meme-actions {
+            opacity: 1;
+        }
+
+        .meme-action-btn {
+            width: 28px;
+            height: 28px;
+            background: rgba(0,0,0,0.7);
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .meme-action-btn:hover {
+            background: var(--accent-red);
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--bg-tertiary);
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(0,217,255,0.05);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--accent-cyan);
+            background: rgba(0,217,255,0.1);
+        }
+
+        .upload-icon {
+            font-size: 40px;
+            color: var(--accent-cyan);
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: var(--text-primary);
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+
+        .upload-hint {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .form-input {
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            min-height: 40px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 360px;
+            width: 90%;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: calc(var(--navbar-height) + 16px);
+            right: 16px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .toast.success { border-left: 4px solid var(--accent-green); }
+        .toast.error { border-left: 4px solid var(--accent-red); }
+
+        @keyframes fadeIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .panel {
+                padding: 16px;
+                border-radius: 12px;
+            }
+
+            .meme-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+            }
+
+            .meme-image {
+                height: 100px;
+            }
+
+            .meme-card {
+                border-radius: 8px;
+            }
+
+            .meme-info {
+                padding: 6px 8px;
+            }
+
+            .btn {
+                padding: 12px 20px;
+                font-size: 15px;
+                min-height: 44px;
+            }
+
+            .stat-item {
+                min-width: 80px;
+                padding: 10px 12px;
+            }
+
+            .stat-num {
+                font-size: 20px;
+            }
+
+            .upload-zone {
+                padding: 24px;
+            }
+
+            .upload-icon {
+                font-size: 32px;
+            }
+
+            .form-input {
+                padding: 12px;
+                font-size: 15px;
+                min-height: 44px;
+            }
+
+            .toast-container {
+                top: calc(var(--navbar-height) + 8px);
+                right: 8px;
+            }
+
+            .toast {
+                min-width: 180px;
+                font-size: 12px;
+                padding: 8px 14px;
+            }
+
+            .meme-actions {
+                opacity: 1;
+            }
+
+            .panel-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 侧边导航栏 -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <img src="/favicon.png?v=1" class="sidebar-brand-logo" alt="ichikaBot">
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-logo-text">ichikaBot</span>
+                    <span class="sidebar-logo-sub">webui</span>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="收起侧边栏">
+                <svg class="nav-icon collapse-icon-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
+                <svg class="nav-icon collapse-icon-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-group-title">监控中心</div>
+            <a href="/" class="nav-item">
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                <span>概览 Dashboard</span>
+            </a>
+            <a href="/monitor-page" class="nav-item">
+                <i data-lucide="activity" class="nav-icon"></i>
+                <span>实时监控 Monitor</span>
+            </a>
+
+            <div class="nav-group-title">核心配置</div>
+            <a href="/command-page" class="nav-item">
+                <i data-lucide="terminal" class="nav-icon"></i>
+                <span>命令设置</span>
+            </a>
+            <a href="/ai-models-page" class="nav-item">
+                <i data-lucide="cpu" class="nav-icon"></i>
+                <span>AI 模型配置</span>
+            </a>
+            <a href="/search-source-page" class="nav-item">
+                <i data-lucide="search" class="nav-icon"></i>
+                <span>搜索源管理</span>
+            </a>
+
+            <div class="nav-group-title">资源管理</div>
+            <a href="/memes-page" class="nav-item active">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>表情包列表</span>
+            </a>
+            <a href="/batch-upload-page" class="nav-item">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>批量上传</span>
+            </a>
+
+            <div class="nav-group-title">系统</div>
+            <a href="/general-settings-page" class="nav-item">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>通用设置</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- 侧边栏遮罩 -->
+    <div id="sidebar-overlay" onclick="ThemeManager.closeSidebar()"></div>
+
+    <!-- 顶部栏（移动端） -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()"><i data-lucide="menu"></i></button>
+            <img src="/favicon.png?v=1" class="topbar-logo" alt="logo">
+            <span class="topbar-title">ichikaBot</span>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-secondary btn-sm" onclick="handleLogout()">登出</button>
+        </div>
+    </header>
+
+    <button class="sidebar-expand-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="展开侧边栏">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+    </button>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <div class="page-content">
+            <!-- 统计信息 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">表情包统计</h2>
+                    <div>
+                        <button class="btn btn-secondary btn-sm" onclick="loadMemes()">刷新</button>
+                        <button class="btn btn-primary btn-sm" onclick="showCreateCategory()">+ 新建分类</button>
+                    </div>
+                </div>
+                <div class="stat-bar" id="stat-bar"></div>
+                <div style="color: var(--text-secondary); font-size: 12px;">根目录: <span id="root-dir" style="color: var(--accent-cyan);">--</span></div>
+            </div>
+
+            <!-- 上传区域 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">上传表情包</h2>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="color: var(--text-secondary); font-size: 13px;">目标分类:</span>
+                        <select id="upload-category" class="form-input" style="min-width: 120px;"></select>
+                    </div>
+                </div>
+                <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+                    <i data-lucide="upload" class="upload-icon" style="width:40px;height:40px"></i>
+                    <div class="upload-text">点击或拖拽文件到此处上传</div>
+                    <div class="upload-hint">支持 JPG, PNG, GIF, WEBP 等格式</div>
+                    <input type="file" id="file-input" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
+                </div>
+            </div>
+
+            <!-- 表情包列表 -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">表情包列表</h2>
+                    <input type="text" class="form-input" placeholder="搜索文件名..." oninput="filterMemes(this.value)" style="min-width: 180px;">
+                </div>
+                <div class="category-tabs" id="category-tabs"></div>
+                <div class="meme-grid" id="meme-grid"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 创建分类弹窗 -->
+    <div class="modal" id="create-modal">
+        <div class="modal-content">
+            <div class="modal-title">新建分类</div>
+            <div class="form-group">
+                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">分类名称</label>
+                <input type="text" id="new-category-name" class="form-input" style="width: 100%;" placeholder="例如: happy, sad">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideCreateCategory()">取消</button>
+                <button class="btn btn-primary" onclick="createCategory()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航（移动端） -->
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item">
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                <span>概览</span>
+            </a>
+            <a href="/monitor-page" class="bottom-nav-item">
+                <i data-lucide="activity" class="nav-icon"></i>
+                <span>监控</span>
+            </a>
+            <a href="/memes-page" class="bottom-nav-item active">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>表情</span>
+            </a>
+            <a href="/batch-upload-page" class="bottom-nav-item">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>上传</span>
+            </a>
+            <a href="/general-settings-page" class="bottom-nav-item">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>设置</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Toast 容器 -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js"></script>
+    <script>
+        let allMemes = {};
+        let allStats = {};
+        let currentCategory = 'all';
+        let searchKeyword = '';
+
+        function showToast(msg, type='info') {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = 'toast ' + type;
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        async function loadMemes() {
+            try {
+                const [memeRes, dirRes] = await Promise.all([fetch('/api/memes/categories'), fetch('/api/memes/root-dir')]);
+                const memeJson = await memeRes.json();
+                const dirJson = await dirRes.json();
+                if (memeJson.success) {
+                    allMemes = memeJson.categories;
+                    allStats = memeJson.stats;
+                    document.getElementById('root-dir').textContent = dirJson.rootDir;
+                    renderStats();
+                    renderCategoryTabs();
+                    renderMemeGrid();
+                    updateUploadCategorySelect();
+                }
+            } catch (e) { showToast('加载失败: ' + e.message, 'error'); }
+        }
+
+        function renderStats() {
+            const total = Object.values(allStats).reduce((a, b) => a + b, 0);
+            document.getElementById('stat-bar').innerHTML = `
+                <div class="stat-item"><div class="stat-num">${total}</div><div class="stat-label">总文件</div></div>
+                <div class="stat-item"><div class="stat-num">${Object.keys(allStats).length}</div><div class="stat-label">分类数</div></div>
+                ${Object.entries(allStats).map(([cat, count]) => `
+                    <div class="stat-item"><div class="stat-num">${count}</div><div class="stat-label">${cat}</div></div>
+                `).join('')}
+            `;
+        }
+
+        function renderCategoryTabs() {
+            const tabs = ['all', ...Object.keys(allStats)];
+            document.getElementById('category-tabs').innerHTML = tabs.map(cat => `
+                <div class="category-tab ${cat === currentCategory ? 'active' : ''}" onclick="selectCategory('${cat}')">
+                    ${cat === 'all' ? '全部' : cat}
+                    <span class="count">${cat === 'all' ? Object.values(allStats).reduce((a,b)=>a+b,0) : allStats[cat]}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateUploadCategorySelect() {
+            const select = document.getElementById('upload-category');
+            select.innerHTML = Object.keys(allStats).map(cat => `<option value="${cat}">${cat}</option>`).join('');
+        }
+
+        function selectCategory(cat) { currentCategory = cat; renderCategoryTabs(); renderMemeGrid(); }
+
+        function renderMemeGrid() {
+            const grid = document.getElementById('meme-grid');
+            let memes = [];
+            if (currentCategory === 'all') {
+                for (const [cat, files] of Object.entries(allMemes)) {
+                    files.forEach(f => memes.push({ ...f, category: cat }));
+                }
+            } else {
+                (allMemes[currentCategory] || []).forEach(f => memes.push({ ...f, category: currentCategory }));
+            }
+            if (searchKeyword) {
+                const kw = searchKeyword.toLowerCase();
+                memes = memes.filter(m => m.name.toLowerCase().includes(kw));
+            }
+
+            if (memes.length === 0) {
+                grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
+                    <i data-lucide="inbox" class="empty-icon" style="width:48px;height:48px"></i>
+                    <div>该分类下还没有表情包</div>
+                </div>`;
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
+            grid.innerHTML = memes.map(m => `
+                <div class="meme-card">
+                    <img class="meme-image" src="${m.url}" loading="lazy">
+                    <div class="meme-actions">
+                        <button class="meme-action-btn" title="删除" onclick="deleteMeme('${m.category}', '${m.name}')"><i data-lucide="trash-2" style="width:16px;height:16px"></i></button>
+                    </div>
+                    <div class="meme-info">
+                        <div class="meme-name" title="${m.name}">${m.name}</div>
+                    <div class="meme-size">${m.sizeKB} KB</div>
+                </div>
+            </div>
+        `).join('');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function filterMemes(keyword) { searchKeyword = keyword; renderMemeGrid(); }
+
+        async function handleFiles(files) {
+            const category = document.getElementById('upload-category').value;
+            if (!category) { showToast('请先选择目标分类', 'error'); return; }
+            for (const file of files) { await uploadFile(file, category); }
+            loadMemes();
+        }
+
+        async function uploadFile(file, category) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('category', category);
+            try {
+                const res = await fetch('/api/memes/upload', { method: 'POST', body: formData });
+                const json = await res.json();
+                json.success ? showToast(`${file.name} 上传成功`, 'success') : showToast(`${file.name} 失败: ${json.message}`, 'error');
+            } catch (e) { showToast('上传失败: ' + e.message, 'error'); }
+        }
+
+        async function deleteMeme(category, name) {
+            if (!confirm(`确定要删除 ${name} 吗？`)) return;
+            try {
+                const res = await fetch(`/api/memes/file?category=${category}&name=${encodeURIComponent(name)}`, { method: 'DELETE' });
+                const json = await res.json();
+                if (json.success) { showToast('删除成功', 'success'); loadMemes(); }
+                else showToast('删除失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        function showCreateCategory() { document.getElementById('create-modal').classList.add('active'); document.getElementById('new-category-name').focus(); }
+        function hideCreateCategory() { document.getElementById('create-modal').classList.remove('active'); document.getElementById('new-category-name').value = ''; }
+
+        async function createCategory() {
+            const name = document.getElementById('new-category-name').value.trim();
+            if (!name) return;
+            try {
+                const res = await fetch(`/api/memes/category?name=${encodeURIComponent(name)}`, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) { showToast('分类创建成功', 'success'); hideCreateCategory(); loadMemes(); }
+                else showToast('创建失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        const uploadZone = document.getElementById('upload-zone');
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+        uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+        document.getElementById('new-category-name').addEventListener('keypress', (e) => { if (e.key === 'Enter') createCategory(); });
+
+        async function handleLogout() {
+            try {
+                const res = await fetch('/api/auth/logout', { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    window.location.href = '/login';
+                }
+            } catch (e) {
+                console.error('登出失败', e);
+                window.location.href = '/login';
+            }
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const json = await res.json();
+                if (!json.authenticated) {
+                    window.location.href = '/login';
+                }
+            } catch (e) {
+                console.error('检查登录状态失败', e);
+            }
+        }
+
+        checkAuth();
+        loadMemes();
+    </script>
+</body>
+</html>

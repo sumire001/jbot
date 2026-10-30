@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
+    <title>批量上传 - ichikaBot</title>
+    <link rel="stylesheet" href="/css/theme.css?v=20260816">
+    <link rel="stylesheet" href="/css/config.css?v=20260816">
+    <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <img src="/favicon.png?v=1" class="sidebar-brand-logo" alt="ichikaBot">
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-logo-text">ichikaBot</span>
+                    <span class="sidebar-logo-sub">webui</span>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="收起侧边栏">
+                <svg class="nav-icon collapse-icon-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
+                <svg class="nav-icon collapse-icon-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-group-title">监控中心</div>
+            <a href="/" class="nav-item">
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                <span>概览 Dashboard</span>
+            </a>
+            <a href="/monitor-page" class="nav-item">
+                <i data-lucide="activity" class="nav-icon"></i>
+                <span>实时监控 Monitor</span>
+            </a>
+
+            <div class="nav-group-title">核心配置</div>
+            <a href="/command-page" class="nav-item">
+                <i data-lucide="terminal" class="nav-icon"></i>
+                <span>命令设置</span>
+            </a>
+            <a href="/ai-models-page" class="nav-item">
+                <i data-lucide="cpu" class="nav-icon"></i>
+                <span>AI 模型配置</span>
+            </a>
+            <a href="/search-source-page" class="nav-item">
+                <i data-lucide="search" class="nav-icon"></i>
+                <span>搜索源管理</span>
+            </a>
+
+            <div class="nav-group-title">资源管理</div>
+            <a href="/memes-page" class="nav-item">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>表情包列表</span>
+            </a>
+            <a href="/batch-upload-page" class="nav-item active">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>批量上传</span>
+            </a>
+
+            <div class="nav-group-title">系统</div>
+            <a href="/general-settings-page" class="nav-item">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>通用设置</span>
+            </a>
+        </nav>
+    </aside>
+
+    <div id="sidebar-overlay" onclick="ThemeManager.closeSidebar()"></div>
+
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()"><i data-lucide="menu"></i></button>
+            <img src="/favicon.png?v=1" class="topbar-logo" alt="logo">
+            <span class="topbar-title">ichikaBot</span>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-secondary btn-sm" onclick="handleLogout()">登出</button>
+        </div>
+    </header>
+
+    <button class="sidebar-expand-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="展开侧边栏">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+    </button>
+
+    <main class="main-content">
+        <div class="page-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">批量上传</h1>
+                    <p class="page-subtitle">选择本地图片一次性上传到指定分类（自动按分类组织）</p>
+                </div>
+                <div class="header-actions">
+                    <a href="/memes-page" class="btn btn-secondary btn-sm">查看表情包列表</a>
+                </div>
+            </div>
+
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">上传设置 <span class="badge">自动归类</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">目标分类</label>
+                        <select id="upload-category" class="form-input"></select>
+                        <input type="text" id="upload-new-category" class="form-input" style="margin-top:8px;" placeholder="或输入新分类名（留空则使用上方下拉）">
+                        <div class="form-hint">选择已有分类，或填写新分类名（不存在时会自动创建）。</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">选择图片（可多选）</label>
+                        <input type="file" id="upload-files" class="form-input" accept="image/*" multiple>
+                        <div class="form-hint">支持 jpg / png / gif 等常见图片格式，单张自动以短 ID 命名。</div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="uploadFiles()" style="margin-top:8px;">开始上传</button>
+
+                    <div id="upload-result" style="margin-top:20px;"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item active"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js"></script>
+    <script>
+        function showToast(msg, type='info') {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = 'toast ' + type;
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        function setGeneralTheme(theme) {
+            ThemeManager.setTheme(theme);
+            updateGeneralThemeUI();
+            showToast('主题已更新', 'success');
+        }
+
+        function updateGeneralThemeUI() {
+            const theme = ThemeManager.getTheme();
+            document.querySelectorAll('.theme-radio').forEach(el => {
+                el.classList.toggle('active', el.dataset.theme === theme);
+            });
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const json = await res.json();
+                if (!json.authenticated) window.location.href = '/login';
+            } catch (e) {}
+        }
+
+        async function handleLogout() {
+            try {
+                const res = await fetch('/api/auth/logout', { method: 'POST' });
+                if (res.ok) window.location.href = '/login';
+            } catch (e) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function loadCategories() {
+            try {
+                const res = await fetch('/api/memes/categories');
+                const json = await res.json();
+                const sel = document.getElementById('upload-category');
+                sel.innerHTML = '';
+                const cats = Object.keys(json.categories || {});
+                if (cats.length === 0) {
+                    sel.innerHTML = '<option value="">（暂无分类，请在下方输入新分类名）</option>';
+                    return;
+                }
+                cats.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c + ' (' + ((json.stats || {})[c] || 0) + ')';
+                    sel.appendChild(opt);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function appendResult(name, status, color) {
+            const box = document.getElementById('upload-result');
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border:1px solid var(--border-color);border-radius:8px;margin-bottom:8px;font-size:13px;';
+            row.innerHTML = `<span style="color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</span>
+                <span style="color:${color};flex-shrink:0;">${status}</span>`;
+            box.prepend(row);
+        }
+
+        async function uploadFiles() {
+            const sel = document.getElementById('upload-category').value;
+            const newCat = document.getElementById('upload-new-category').value.trim();
+            const category = newCat || sel;
+            const files = document.getElementById('upload-files').files;
+            if (!category) { showToast('请选择或输入目标分类', 'error'); return; }
+            if (!files.length) { showToast('请选择至少一个图片文件', 'error'); return; }
+
+            const box = document.getElementById('upload-result');
+            box.innerHTML = '';
+            let ok = 0, fail = 0;
+            for (let i = 0; i < files.length; i++) {
+                const fd = new FormData();
+                fd.append('file', files[i]);
+                fd.append('category', category);
+                try {
+                    const res = await fetch('/api/memes/upload', { method: 'POST', body: fd });
+                    const json = await res.json();
+                    if (json.success) { ok++; appendResult(files[i].name, '成功', 'var(--accent-green)'); }
+                    else { fail++; appendResult(files[i].name, json.message || '失败', 'var(--accent-red)'); }
+                } catch (e) {
+                    fail++; appendResult(files[i].name, '请求失败', 'var(--accent-red)');
+                }
+            }
+            showToast(`上传完成：成功 ${ok}，失败 ${fail}`, fail === 0 ? 'success' : 'error');
+            loadCategories();
+        }
+
+        checkAuth();
+        loadCategories();
+        updateGeneralThemeUI();
+    </script>
+</body>
+</html>

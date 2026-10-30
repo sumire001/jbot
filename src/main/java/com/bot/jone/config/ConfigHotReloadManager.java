@@ -33,6 +33,12 @@ public class ConfigHotReloadManager {
     @Autowired
     private GalleryConfig galleryConfig;
 
+    @Autowired
+    private com.bot.jone.config.ProxyConfig proxyConfig;
+
+    @Autowired
+    private BaikeConfig baikeConfig;
+
     /**
      * 更新命令配置（前缀 + 别名）
      * 内存立即生效 + 持久化到 config/application.yml
@@ -217,6 +223,82 @@ public class ConfigHotReloadManager {
         addOrReplaceProperty("bot.cache.message-max-size", messageMaxSize);
         YamlFileUpdater.update("bot.cache.message-max-size", messageMaxSize);
         log.info("[配置热更新] 消息缓存大小: {} (需重启后完全生效)", messageMaxSize);
+    }
+
+    /**
+     * 更新出站代理配置
+     * 内存立即生效（重新安装 JVM ProxySelector）+ 持久化到 config/application.yml。
+     * @param password 为空则不修改现有密码（避免误清空）
+     */
+    public void updateProxyConfig(boolean enabled, String type, String host, int port,
+                                   String username, String password, String nonProxyHosts) {
+        boolean changePwd = password != null && !password.isEmpty();
+
+        proxyConfig.setEnabled(enabled);
+        proxyConfig.setType(type);
+        proxyConfig.setHost(host);
+        proxyConfig.setPort(port);
+        if (username != null) proxyConfig.setUsername(username);
+        if (changePwd) proxyConfig.setPassword(password);
+        proxyConfig.setNonProxyHosts(nonProxyHosts);
+
+        addOrReplaceProperty("bot.proxy.enabled", enabled);
+        addOrReplaceProperty("bot.proxy.type", type);
+        addOrReplaceProperty("bot.proxy.host", host);
+        addOrReplaceProperty("bot.proxy.port", port);
+        if (username != null) addOrReplaceProperty("bot.proxy.username", username);
+        if (changePwd) addOrReplaceProperty("bot.proxy.password", password);
+        addOrReplaceProperty("bot.proxy.non-proxy-hosts", nonProxyHosts);
+
+        Map<String, Object> persist = new LinkedHashMap<>();
+        persist.put("bot.proxy.enabled", enabled);
+        persist.put("bot.proxy.type", type);
+        persist.put("bot.proxy.host", host);
+        persist.put("bot.proxy.port", port);
+        if (username != null) persist.put("bot.proxy.username", username);
+        if (changePwd) persist.put("bot.proxy.password", password);
+        persist.put("bot.proxy.non-proxy-hosts", nonProxyHosts);
+        YamlFileUpdater.updateAll(persist);
+
+        // 重新安装 JVM ProxySelector，使本次修改立即生效（无需重启）
+        proxyConfig.reapply();
+
+        log.info("[配置热更新] 代理: 启用={}, 类型={}, 地址={}:{}, 非代理={}", enabled, type, host, port, nonProxyHosts);
+    }
+
+    /**
+     * 更新网页搜索后端（bing / duckduckgo / baidu）
+     * 内存立即生效（WebSearchTool 每次搜索实时读取 aiConfig.getSearchEngine()）+ 持久化到 config/application.yml。
+     * 无需 reapply：搜索引擎是普通字段，WebSearchTool 在 execute() 中实时读取。
+     */
+    public void updateSearchEngineConfig(String engine) {
+        aiConfig.setSearchEngine(engine);
+        addOrReplaceProperty("bot.ai.search-engine", engine);
+        YamlFileUpdater.update("bot.ai.search-engine", engine);
+        log.info("[配置热更新] 网页搜索后端: {}", engine);
+    }
+
+    /**
+     * 更新百度百科配置（启用开关 + API Key）
+     * 内存立即生效（BaiduBaikeTool 每次调用实时读取 BaikeConfig）+ 持久化到 config/application.yml。
+     * @param apiKey 为 null 或空则不修改现有 Key（留空即继续使用配置中已有的值或环境变量 BAIDU_API_KEY）
+     */
+    public void updateBaikeConfig(boolean enabled, String apiKey) {
+        boolean changeKey = apiKey != null && !apiKey.trim().isEmpty();
+        baikeConfig.setEnabled(enabled);
+        if (changeKey) {
+            baikeConfig.setApiKey(apiKey.trim());
+        }
+
+        addOrReplaceProperty("bot.baike.enabled", enabled);
+        if (changeKey) addOrReplaceProperty("bot.baike.api-key", apiKey.trim());
+
+        Map<String, Object> persist = new LinkedHashMap<>();
+        persist.put("bot.baike.enabled", enabled);
+        if (changeKey) persist.put("bot.baike.api-key", apiKey.trim());
+        YamlFileUpdater.updateAll(persist);
+
+        log.info("[配置热更新] 百度百科: 启用={}, apiKey更新={}", enabled, changeKey);
     }
 
     /**

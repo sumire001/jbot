@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
-    <title>配置管理 - ichikaBot</title>
-    <link rel="stylesheet" href="/css/theme.css">
+    <title>通用设置 - ichikaBot</title>
+    <link rel="stylesheet" href="/css/theme.css?v=20260815">
+    <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
     <style>
         .page-header {
             display: flex;
@@ -378,27 +380,67 @@
 <body>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <img src="/favicon.png?v=1" class="sidebar-logo" alt="logo">
-            <span class="sidebar-title">ichikaBot</span>
+            <div class="sidebar-brand">
+                <img src="/favicon.png?v=1" class="sidebar-brand-logo" alt="ichikaBot">
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-logo-text">ichikaBot</span>
+                    <span class="sidebar-logo-sub">webui</span>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="收起侧边栏">
+                <svg class="nav-icon collapse-icon-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
+                <svg class="nav-icon collapse-icon-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+            </button>
         </div>
 
         <nav class="sidebar-nav">
-            <a href="/" class="nav-item"><span class="nav-item-icon">📊</span><span>概览</span></a>
-            <a href="/monitor-page" class="nav-item"><span class="nav-item-icon">📈</span><span>实时监控</span></a>
-            <a href="/config-page" class="nav-item active"><span class="nav-item-icon">⚙️</span><span>配置管理</span></a>
-            <a href="/memes-page" class="nav-item"><span class="nav-item-icon">🖼️</span><span>表情包</span></a>
-        </nav>
+            <div class="nav-group-title">监控中心</div>
+            <a href="/" class="nav-item">
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                <span>概览 Dashboard</span>
+            </a>
+            <a href="/monitor-page" class="nav-item">
+                <i data-lucide="activity" class="nav-icon"></i>
+                <span>实时监控 Monitor</span>
+            </a>
 
-        <div class="sidebar-footer">
-            <button class="collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()">←</button>
-        </div>
+            <div class="nav-group-title">核心配置</div>
+            <a href="/command-page" class="nav-item">
+                <i data-lucide="terminal" class="nav-icon"></i>
+                <span>命令设置</span>
+            </a>
+            <a href="/ai-models-page" class="nav-item">
+                <i data-lucide="cpu" class="nav-icon"></i>
+                <span>AI 模型配置</span>
+            </a>
+            <a href="/search-source-page" class="nav-item">
+                <i data-lucide="search" class="nav-icon"></i>
+                <span>搜索源管理</span>
+            </a>
+
+            <div class="nav-group-title">资源管理</div>
+            <a href="/memes-page" class="nav-item">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>表情包列表</span>
+            </a>
+            <a href="/batch-upload-page" class="nav-item">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>批量上传</span>
+            </a>
+
+            <div class="nav-group-title">系统</div>
+            <a href="/general-settings-page" class="nav-item active">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>通用设置</span>
+            </a>
+        </nav>
     </aside>
 
     <div id="sidebar-overlay" onclick="ThemeManager.closeSidebar()"></div>
 
     <header class="topbar">
         <div class="topbar-left">
-            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()">☰</button>
+            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()"><i data-lucide="menu"></i></button>
             <img src="/favicon.png?v=1" class="topbar-logo" alt="logo">
             <span class="topbar-title">ichikaBot</span>
         </div>
@@ -407,12 +449,16 @@
         </div>
     </header>
 
+    <button class="sidebar-expand-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="展开侧边栏">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+    </button>
+
     <main class="main-content">
         <div class="page-content">
             <div class="page-header">
                 <div>
-                    <h1 class="page-title">配置管理</h1>
-                    <p class="page-subtitle">系统配置和参数调整</p>
+                <h1 class="page-title">通用设置</h1>
+                <p class="page-subtitle">系统通用配置与参数调整</p>
                 </div>
             </div>
 
@@ -426,15 +472,15 @@
                         <label class="form-label">外观主题</label>
                         <div class="theme-radio-group">
                             <div class="theme-radio" data-theme="system" onclick="setGeneralTheme('system')">
-                                <div class="theme-radio-icon">💻</div>
+                                <i data-lucide="monitor" class="theme-radio-icon"></i>
                                 <div class="theme-radio-label">跟随系统</div>
                             </div>
                             <div class="theme-radio" data-theme="light" onclick="setGeneralTheme('light')">
-                                <div class="theme-radio-icon">☀️</div>
+                                <i data-lucide="sun" class="theme-radio-icon"></i>
                                 <div class="theme-radio-label">浅色模式</div>
                             </div>
                             <div class="theme-radio" data-theme="dark" onclick="setGeneralTheme('dark')">
-                                <div class="theme-radio-icon">🌙</div>
+                                <i data-lucide="moon" class="theme-radio-icon"></i>
                                 <div class="theme-radio-label">暗色模式</div>
                             </div>
                         </div>
@@ -486,55 +532,7 @@
                 </div>
             </div>
 
-            <!-- AI 配置 -->
-            <div class="config-panel">
-                <div class="config-panel-header">
-                    <h2 class="config-panel-title">AI 聊天配置 <span class="badge">可热更新</span></h2>
-                </div>
-                <div class="config-panel-body">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label">启用 AI</label>
-                            <label class="switch"><input type="checkbox" id="ai-enabled"><span class="slider"></span></label>
-                        </div>
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <label class="form-label">API Key</label>
-                            <div style="display:flex;gap:8px;">
-                                <input type="password" id="ai-api-key" class="form-input" placeholder="留空则不修改">
-                                <button class="btn btn-secondary btn-sm" type="button" onclick="toggleApiKeyVisibility()" style="white-space:nowrap;">显示</button>
-                            </div>
-                            <div class="form-hint">留空保存时不修改现有 Key</div>
-                        </div>
-                        <div class="form-group" style="grid-column: 1 / -1;">
-                            <label class="form-label">调用模型地址 (API URL)</label>
-                            <input type="text" id="ai-api-url" class="form-input" value="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions">
-                            <div class="form-hint">OpenAI 兼容接口地址</div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">模型</label>
-                            <input type="text" id="ai-model" class="form-input" value="qwen-plus">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">最大 Token</label>
-                            <input type="number" id="ai-tokens" class="form-input" min="100" max="8000" value="1024">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Temperature</label>
-                            <input type="number" id="ai-temp" class="form-input" min="0" max="2" step="0.1" value="0.7">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">超时 (秒)</label>
-                            <input type="number" id="ai-timeout" class="form-input" min="5" max="300" value="60">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">历史对话轮数</label>
-                            <input type="number" id="ai-history" class="form-input" min="1" max="50" value="10">
-                            <div class="form-hint">短期记忆保留的对话轮数，每轮含用户+AI两条消息</div>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary" onclick="updateAi()">保存配置</button>
-                </div>
-            </div>
+
 
             <!-- 画廊配置 -->
             <div class="config-panel">
@@ -662,52 +660,53 @@
                 </div>
             </div>
 
-            <!-- 命令配置 -->
+            <!-- 代理配置 -->
             <div class="config-panel">
                 <div class="config-panel-header">
-                    <h2 class="config-panel-title">命令配置 <span class="badge">可热更新</span></h2>
+                    <h2 class="config-panel-title">出站代理配置 <span class="badge">可热更新</span></h2>
                 </div>
                 <div class="config-panel-body">
-                    <div class="form-group">
-                        <label class="form-label">命令前缀</label>
-                        <input type="text" id="cmd-prefix" class="form-input" maxlength="4" value="/" style="max-width: 120px;">
-                        <div class="form-hint">所有命令必须以此开头，最长 4 字符。</div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">启用代理</label>
+                            <label class="switch"><input type="checkbox" id="proxy-enabled"><span class="slider"></span></label>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">类型</label>
+                            <select id="proxy-type" class="form-input">
+                                <option value="http">http</option>
+                                <option value="https">https</option>
+                                <option value="socks">socks</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">地址</label>
+                            <input type="text" id="proxy-host" class="form-input" placeholder="127.0.0.1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">端口</label>
+                            <input type="number" id="proxy-port" class="form-input" min="1" max="65535" placeholder="7890">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">用户名（匿名代理留空）</label>
+                            <input type="text" id="proxy-username" class="form-input" placeholder="留空表示匿名">
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">密码</label>
+                            <input type="password" id="proxy-password" class="form-input" placeholder="留空则不修改">
+                            <div class="form-hint">留空保存时不修改现有密码</div>
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">不走代理的主机 (| 分隔，支持 *.domain)</label>
+                            <input type="text" id="proxy-nonhosts" class="form-input">
+                            <div class="form-hint">默认含 localhost/127.0.0.1/api.deepseek.com，使 DeepSeek 对话直连、工具走代理</div>
+                        </div>
                     </div>
-
-                    <!-- 统一表格：表头 -->
-                    <div class="cmd-list-header">
-                        <div class="col-cmd-name">主命令名</div>
-                        <div class="col-cmd-alias">别名 (逗号分隔)</div>
-                        <div class="col-cmd-perm">管理员权限</div>
-                        <div class="col-cmd-action">操作</div>
-                    </div>
-
-                    <!-- 动态命令行容器 -->
-                    <div id="cmd-list-container"></div>
-
-                    <!-- 添加行 -->
-                    <div class="cmd-add-row">
-                        <div class="col-cmd-name">
-                            <input type="text" id="cmd-new-key" class="form-input" placeholder="新命令名">
-                        </div>
-                        <div class="col-cmd-alias">
-                            <input type="text" id="cmd-new-value" class="form-input" placeholder="别名(可选)">
-                        </div>
-                        <div class="col-cmd-perm">
-                            <label class="switch-label">
-                                <input type="checkbox" id="cmd-new-perm" class="switch-input">
-                                <span class="switch-slider-sm"></span>
-                                <span>需管理</span>
-                            </label>
-                        </div>
-                        <div class="col-cmd-action">
-                            <button class="btn-add" onclick="addCommandRow()">添加</button>
-                        </div>
-                    </div>
-
-                    <button class="btn btn-primary" onclick="updateCommandConfig()" style="margin-top:20px;">保存全部配置</button>
+                    <button class="btn btn-primary" onclick="updateProxy()">保存配置</button>
                 </div>
             </div>
+
+
 
             <!-- 管理员配置 -->
             <div class="config-panel">
@@ -729,10 +728,11 @@
 
     <nav class="bottom-nav">
         <div class="bottom-nav-items">
-            <a href="/" class="bottom-nav-item"><span class="nav-icon">📊</span><span>概览</span></a>
-            <a href="/monitor-page" class="bottom-nav-item"><span class="nav-icon">📈</span><span>监控</span></a>
-            <a href="/config-page" class="bottom-nav-item active"><span class="nav-icon">⚙️</span><span>配置</span></a>
-            <a href="/memes-page" class="bottom-nav-item"><span class="nav-icon">🖼️</span><span>表情</span></a>
+            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item active"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
         </div>
     </nav>
 
@@ -772,18 +772,7 @@
                     document.getElementById('comp-dimension').value = json.imageCompression.maxDimension;
                     document.getElementById('comp-quality').value = json.imageCompression.jpegQuality;
                     document.getElementById('comp-skip-gif').checked = json.imageCompression.skipGif;
-                    document.getElementById('ai-enabled').checked = json.ai.enabled;
-                    document.getElementById('ai-api-key').value = json.ai.apiKey || '';
-                    document.getElementById('ai-api-key').dataset.original = json.ai.apiKey || '';
-                    document.getElementById('ai-api-url').value = json.ai.apiUrl || '';
-                    document.getElementById('ai-model').value = json.ai.model;
-                    document.getElementById('ai-tokens').value = json.ai.maxTokens;
-                    document.getElementById('ai-temp').value = json.ai.temperature;
-                    document.getElementById('ai-timeout').value = json.ai.timeoutSeconds;
-                    document.getElementById('ai-history').value = json.ai.historyMaxContext;
-                    document.getElementById('ai-system-prompt').value = json.ai.systemPrompt || '';
-                    updatePromptCount();
-                    // 画廊配置
+                    // 画廊配置（画师图/画廊，归入通用设置）
                     if (json.gallery) {
                         document.getElementById('gallery-enabled').checked = json.gallery.enabled;
                         document.getElementById('gallery-api-user').value = json.gallery.apiUser || '';
@@ -798,13 +787,17 @@
                         document.getElementById('gallery-thumb-dim').value = json.gallery.thumbDim;
                     }
                     document.getElementById('msg-cache-size').value = json.cache.messageMaxSize;
+                    if (json.proxy) {
+                        document.getElementById('proxy-enabled').checked = json.proxy.enabled;
+                        document.getElementById('proxy-type').value = json.proxy.type || 'http';
+                        document.getElementById('proxy-host').value = json.proxy.host || '';
+                        document.getElementById('proxy-port').value = json.proxy.port || 7890;
+                        document.getElementById('proxy-username').value = json.proxy.username || '';
+                        document.getElementById('proxy-nonhosts').value = json.proxy.nonProxyHosts || '';
+                        // 密码不回显，前端密码框始终为空（提交留空表示不修改）
+                    }
                     if (json.admin) {
                         document.getElementById('admin-qq-list').value = (json.admin.qqList || []).join(', ');
-                    }
-                    // 命令配置
-                    if (json.command) {
-                        document.getElementById('cmd-prefix').value = json.command.prefix || '/';
-                        renderCommandList(json.command.aliases || {}, json.command.permissions || {});
                     }
                 }
             } catch (e) { console.error(e); }
@@ -1134,6 +1127,43 @@
             } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
         }
 
+        async function updateProxy() {
+            const data = new URLSearchParams({
+                enabled: document.getElementById('proxy-enabled').checked,
+                type: document.getElementById('proxy-type').value,
+                host: document.getElementById('proxy-host').value,
+                port: document.getElementById('proxy-port').value,
+                username: document.getElementById('proxy-username').value,
+                nonProxyHosts: document.getElementById('proxy-nonhosts').value
+            });
+            // 仅当用户填写了密码才提交（留空表示不修改现有密码）
+            const pwd = document.getElementById('proxy-password').value;
+            if (pwd) data.append('password', pwd);
+            try {
+                const res = await fetch('/api/config/proxy?' + data, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast('代理配置已更新并热生效', 'success');
+                    document.getElementById('proxy-password').value = '';
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function updateSearchEngine() {
+            const engine = document.getElementById('search-engine').value;
+            try {
+                const res = await fetch('/api/config/search-engine?engine=' + encodeURIComponent(engine), { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast(json.message, 'success');
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
         async function loadUserMemories() {
             try {
                 const res = await fetch('/api/config/long-term-memory/users');
@@ -1260,6 +1290,84 @@
                 });
                 const json = await res.json();
                 json.success ? showToast('管理员配置已更新', 'success') : showToast('更新失败: ' + json.message, 'error');
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/config/models');
+                const json = await res.json();
+                if (!json.success) { showToast('加载模型失败: ' + json.message, 'error'); return; }
+                renderModels(json.configured || [], json.catalogue || []);
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        function statusBadge(status) {
+            const color = {
+                READY: 'var(--accent-green)', MISSING: 'var(--accent-red)',
+                DOWNLOADING: 'var(--accent-cyan)', ERROR: 'var(--accent-red)',
+                DISABLED: 'var(--text-secondary)'
+            }[status] || 'var(--text-secondary)';
+            return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;border:1px solid ${color};color:${color};">${status}</span>`;
+        }
+
+        function renderModels(configured, catalogue) {
+            const list = document.getElementById('model-list');
+            list.innerHTML = '';
+            if (!configured.length) {
+                list.innerHTML = '<div class="form-hint">未配置任何模型（在 bot.models.models 中添加 key 即可）。</div>';
+            }
+            configured.forEach(m => {
+                const card = document.createElement('div');
+                card.style.cssText = 'padding:14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;margin-bottom:12px;';
+                const missing = (m.files || []).filter(f => !f.present);
+                const fileRows = (m.files || []).map(f =>
+                    `<div style="font-size:12px;display:flex;gap:8px;align-items:center;">
+                        <span style="color:${f.present ? 'var(--accent-green)' : 'var(--accent-red)'};">${f.present ? '✔' : '✘'}</span>
+                        <span style="color:var(--text-primary);">${f.name}</span>
+                    </div>`).join('');
+                card.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <div><b style="color:var(--text-primary);">${m.key}</b>
+                            <span style="color:var(--text-secondary);font-size:12px;">（${m.type}，维度 ${m.dim || 'N/A'}）</span></div>
+                        ${statusBadge(m.status)}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">${m.message || ''}</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">本地目录：<code>${m.localDir}</code></div>
+                    ${fileRows}
+                    ${missing.length ? `<button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="downloadModel('${m.key}')">下载缺失文件（${missing.length}）</button>` : ''}
+                `;
+                list.appendChild(card);
+            });
+
+            const cat = document.getElementById('model-catalogue');
+            cat.innerHTML = '';
+            catalogue.forEach(c => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;margin-bottom:10px;';
+                const files = (c.files || []).map(f =>
+                    `<div style="font-size:11px;color:var(--text-secondary);word-break:break-all;">• ${f.name} — <a href="${f.url}" target="_blank" style="color:var(--accent-cyan);">${f.url}</a></div>`).join('');
+                item.innerHTML = `
+                    <div style="margin-bottom:4px;"><b style="color:var(--text-primary);">${c.key}</b>
+                        <span style="color:var(--text-secondary);font-size:12px;">（${c.type}，维度 ${c.dim || 'N/A'}）</span></div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${c.description || ''}</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">建议本地目录：<code>${c.recommendedLocalDir}</code></div>
+                    ${files}
+                `;
+                cat.appendChild(item);
+            });
+        }
+
+        async function downloadModel(key) {
+            try {
+                const res = await fetch(`/api/config/models/${encodeURIComponent(key)}/download`, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast(json.message, 'success');
+                    setTimeout(loadModels, 1500);
+                } else {
+                    showToast('触发失败: ' + json.message, 'error');
+                }
             } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
         }
 

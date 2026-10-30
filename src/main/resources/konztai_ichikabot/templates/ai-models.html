@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
+    <title>AI 模型配置 - ichikaBot</title>
+    <link rel="stylesheet" href="/css/theme.css?v=20260816">
+    <link rel="stylesheet" href="/css/config.css?v=20260816">
+    <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <img src="/favicon.png?v=1" class="sidebar-brand-logo" alt="ichikaBot">
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-logo-text">ichikaBot</span>
+                    <span class="sidebar-logo-sub">webui</span>
+                </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="collapse-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="收起侧边栏">
+                <svg class="nav-icon collapse-icon-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>
+                <svg class="nav-icon collapse-icon-closed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <div class="nav-group-title">监控中心</div>
+            <a href="/" class="nav-item">
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                <span>概览 Dashboard</span>
+            </a>
+            <a href="/monitor-page" class="nav-item">
+                <i data-lucide="activity" class="nav-icon"></i>
+                <span>实时监控 Monitor</span>
+            </a>
+
+            <div class="nav-group-title">核心配置</div>
+            <a href="/command-page" class="nav-item">
+                <i data-lucide="terminal" class="nav-icon"></i>
+                <span>命令设置</span>
+            </a>
+            <a href="/ai-models-page" class="nav-item active">
+                <i data-lucide="cpu" class="nav-icon"></i>
+                <span>AI 模型配置</span>
+            </a>
+            <a href="/search-source-page" class="nav-item">
+                <i data-lucide="search" class="nav-icon"></i>
+                <span>搜索源管理</span>
+            </a>
+
+            <div class="nav-group-title">资源管理</div>
+            <a href="/memes-page" class="nav-item">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>表情包列表</span>
+            </a>
+            <a href="/batch-upload-page" class="nav-item">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>批量上传</span>
+            </a>
+
+            <div class="nav-group-title">系统</div>
+            <a href="/general-settings-page" class="nav-item">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>通用设置</span>
+            </a>
+        </nav>
+    </aside>
+
+    <div id="sidebar-overlay" onclick="ThemeManager.closeSidebar()"></div>
+
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="menu-toggle" onclick="ThemeManager.toggleSidebar()"><i data-lucide="menu"></i></button>
+            <img src="/favicon.png?v=1" class="topbar-logo" alt="logo">
+            <span class="topbar-title">ichikaBot</span>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn btn-secondary btn-sm" onclick="handleLogout()">登出</button>
+        </div>
+    </header>
+
+    <button class="sidebar-expand-btn" onclick="ThemeManager.toggleSidebarCollapse()" title="展开侧边栏">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/></svg>
+    </button>
+
+    <main class="main-content">
+        <div class="page-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">AI 模型配置</h1>
+                    <p class="page-subtitle">AI 聊天 API 与本地向量/重排模型管理</p>
+                </div>
+            </div>
+
+            <!-- AI 聊天配置 -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">AI 聊天配置 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">启用 AI</label>
+                            <label class="switch"><input type="checkbox" id="ai-enabled"><span class="slider"></span></label>
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">API Key</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="password" id="ai-api-key" class="form-input" placeholder="留空则不修改">
+                                <button class="btn btn-secondary btn-sm" type="button" onclick="toggleApiKeyVisibility()" style="white-space:nowrap;">显示</button>
+                            </div>
+                            <div class="form-hint">留空保存时不修改现有 Key</div>
+                        </div>
+                        <div class="form-group" style="grid-column: 1 / -1;">
+                            <label class="form-label">调用模型地址 (API URL)</label>
+                            <input type="text" id="ai-api-url" class="form-input" value="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions">
+                            <div class="form-hint">OpenAI 兼容接口地址</div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">模型</label>
+                            <input type="text" id="ai-model" class="form-input" value="qwen-plus">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">最大 Token</label>
+                            <input type="number" id="ai-tokens" class="form-input" min="100" max="8000" value="1024">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Temperature</label>
+                            <input type="number" id="ai-temp" class="form-input" min="0" max="2" step="0.1" value="0.7">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">超时 (秒)</label>
+                            <input type="number" id="ai-timeout" class="form-input" min="5" max="300" value="60">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">历史对话轮数</label>
+                            <input type="number" id="ai-history" class="form-input" min="1" max="50" value="10">
+                            <div class="form-hint">短期记忆保留的对话轮数，每轮含用户+AI两条消息</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateAi()">保存配置</button>
+                </div>
+            </div>
+
+            <!-- 模型管理（嵌入/重排） -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">模型管理（嵌入/重排） <span class="badge">本地优先</span></h2>
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="loadModels()" style="width:auto;">刷新状态</button>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-hint" style="margin-bottom:12px;">
+                        本地优先：启动时若 <code>data/models/&lt;key&gt;/</code> 下权重文件齐全则直接就绪；
+                        缺失且未开启自动下载时仅标记为「缺失」（不影响 bot 启动）。可在面板手动触发下载，
+                        或在 <code>bot.models</code> 开启全局/单模型自动下载。权重较大（bge-m3 ≈ 2.3GB），
+                        建议先把本地已有权重放进对应目录。
+                    </div>
+                    <div id="model-list"></div>
+                    <h3 style="margin:18px 0 8px;font-size:14px;color:var(--text-secondary);">可下载模型目录</h3>
+                    <div id="model-catalogue"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js"></script>
+    <script>
+        function showToast(msg, type='info') {
+            const c = document.getElementById('toast-container');
+            const t = document.createElement('div');
+            t.className = 'toast ' + type;
+            t.textContent = msg;
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        function setGeneralTheme(theme) {
+            ThemeManager.setTheme(theme);
+            updateGeneralThemeUI();
+            showToast('主题已更新', 'success');
+        }
+
+        function updateGeneralThemeUI() {
+            const theme = ThemeManager.getTheme();
+            document.querySelectorAll('.theme-radio').forEach(el => {
+                el.classList.toggle('active', el.dataset.theme === theme);
+            });
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/status');
+                const json = await res.json();
+                if (!json.authenticated) window.location.href = '/login';
+            } catch (e) {}
+        }
+
+        async function handleLogout() {
+            try {
+                const res = await fetch('/api/auth/logout', { method: 'POST' });
+                if (res.ok) window.location.href = '/login';
+            } catch (e) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function loadAiConfig() {
+            try {
+                const res = await fetch('/api/config/all');
+                const json = await res.json();
+                if (json.success && json.ai) {
+                    document.getElementById('ai-enabled').checked = json.ai.enabled;
+                    document.getElementById('ai-api-key').value = json.ai.apiKey || '';
+                    document.getElementById('ai-api-key').dataset.original = json.ai.apiKey || '';
+                    document.getElementById('ai-api-url').value = json.ai.apiUrl || '';
+                    document.getElementById('ai-model').value = json.ai.model;
+                    document.getElementById('ai-tokens').value = json.ai.maxTokens;
+                    document.getElementById('ai-temp').value = json.ai.temperature;
+                    document.getElementById('ai-timeout').value = json.ai.timeoutSeconds;
+                    document.getElementById('ai-history').value = json.ai.historyMaxContext;
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function updateAi() {
+            const data = new URLSearchParams({
+                enabled: document.getElementById('ai-enabled').checked,
+                apiUrl: document.getElementById('ai-api-url').value,
+                model: document.getElementById('ai-model').value,
+                maxTokens: document.getElementById('ai-tokens').value,
+                temperature: document.getElementById('ai-temp').value,
+                timeoutSeconds: document.getElementById('ai-timeout').value,
+                historyMaxContext: document.getElementById('ai-history').value
+            });
+            const keyInput = document.getElementById('ai-api-key');
+            const keyVal = keyInput.value;
+            if (keyVal && keyVal !== keyInput.dataset.original) {
+                data.append('apiKey', keyVal);
+            }
+            try {
+                const res = await fetch('/api/config/ai?' + data, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast('AI配置已更新并持久化', 'success');
+                    keyInput.dataset.original = keyVal;
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('ai-api-key');
+            const btn = event.target;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '隐藏';
+            } else {
+                input.type = 'password';
+                btn.textContent = '显示';
+            }
+        }
+
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/config/models');
+                const json = await res.json();
+                if (!json.success) { showToast('加载模型失败: ' + json.message, 'error'); return; }
+                renderModels(json.configured || [], json.catalogue || []);
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        function statusBadge(status) {
+            const color = {
+                READY: 'var(--accent-green)', MISSING: 'var(--accent-red)',
+                DOWNLOADING: 'var(--accent-cyan)', ERROR: 'var(--accent-red)',
+                DISABLED: 'var(--text-secondary)'
+            }[status] || 'var(--text-secondary)';
+            return `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;border:1px solid ${color};color:${color};">${status}</span>`;
+        }
+
+        function renderModels(configured, catalogue) {
+            const list = document.getElementById('model-list');
+            list.innerHTML = '';
+            if (!configured.length) {
+                list.innerHTML = '<div class="form-hint">未配置任何模型（在 bot.models.models 中添加 key 即可）。</div>';
+            }
+            configured.forEach(m => {
+                const card = document.createElement('div');
+                card.style.cssText = 'padding:14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;margin-bottom:12px;';
+                const missing = (m.files || []).filter(f => !f.present);
+                const fileRows = (m.files || []).map(f =>
+                    `<div style="font-size:12px;display:flex;gap:8px;align-items:center;">
+                        <span style="color:${f.present ? 'var(--accent-green)' : 'var(--accent-red)'};">${f.present ? '✔' : '✘'}</span>
+                        <span style="color:var(--text-primary);">${f.name}</span>
+                    </div>`).join('');
+                card.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                        <div><b style="color:var(--text-primary);">${m.key}</b>
+                            <span style="color:var(--text-secondary);font-size:12px;">（${m.type}，维度 ${m.dim || 'N/A'}）</span></div>
+                        ${statusBadge(m.status)}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">${m.message || ''}</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">本地目录：<code>${m.localDir}</code></div>
+                    ${fileRows}
+                    ${missing.length ? `<button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="downloadModel('${m.key}')">下载缺失文件（${missing.length}）</button>` : ''}
+                `;
+                list.appendChild(card);
+            });
+
+            const cat = document.getElementById('model-catalogue');
+            cat.innerHTML = '';
+            catalogue.forEach(c => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:10px;margin-bottom:10px;';
+                const files = (c.files || []).map(f =>
+                    `<div style="font-size:11px;color:var(--text-secondary);word-break:break-all;">• ${f.name} — <a href="${f.url}" target="_blank" style="color:var(--accent-cyan);">${f.url}</a></div>`).join('');
+                item.innerHTML = `
+                    <div style="margin-bottom:4px;"><b style="color:var(--text-primary);">${c.key}</b>
+                        <span style="color:var(--text-secondary);font-size:12px;">（${c.type}，维度 ${c.dim || 'N/A'}）</span></div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${c.description || ''}</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;">建议本地目录：<code>${c.recommendedLocalDir}</code></div>
+                    ${files}
+                `;
+                cat.appendChild(item);
+            });
+        }
+
+        async function downloadModel(key) {
+            try {
+                const res = await fetch(`/api/config/models/${encodeURIComponent(key)}/download`, { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast(json.message, 'success');
+                    setTimeout(loadModels, 1500);
+                } else {
+                    showToast('触发失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
+        checkAuth();
+        loadAiConfig();
+        loadModels();
+        updateGeneralThemeUI();
+    </script>
+</body>
+</html>

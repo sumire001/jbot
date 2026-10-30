@@ -52,6 +52,10 @@ bot:
       summary-cooldown-minutes: 10  # 摘要冷却时间
       max-traits-length: 300  # 单用户画像(traits)落盘最大字符数（安全阀，防 LLM 写出超长文本；非成本项）
       max-group-context-chars: 600  # 注入聊天上下文的群成员画像总长上限（真正控制每条消息 token 成本，超出按人头截断）
+  # 百度百科查询（百度千帆 AppBuilder「百度百科」组件）——供 AI 工具 baidu_baike 使用
+  baike:
+    enabled: true                  # 是否启用百度百科工具
+    api-key: ${BAIDU_API_KEY:}     # AppBuilder API Key（形如 bce-v3/ALTAK-...）；留空则回退读取环境变量 BAIDU_API_KEY
   # 命令配置
   command:
     prefix: "/"  # 命令前缀，所有命令必须以此开头
@@ -96,6 +100,33 @@ bot:
     token:                        # 私有库的个人访问令牌（PAT）；也可通过环境变量 GIT_TOKEN 注入，勿提交进仓库
     issues-enabled: false        # issues 是平台概念、需调平台 API，默认关闭；true 且配 token 后生效
     issues-max: 10               # issues 单次返回条数上限
+  # 出站代理配置（让工具调用经代理出口获取外网信息；DeepSeek 对话默认直连）
+  proxy:
+    enabled: true               # 是否启用；true 时网页搜索/图片/图库/二次元图/远程git 等走代理
+    type: http                  # 代理类型：http / https / socks
+    host: 127.0.0.1            # 代理服务器地址（如 Clash/v2ray/shadowsocks 本地端口）
+    port: 7897                 # 代理端口
+    username:                  # 代理认证用户名（匿名代理留空）
+    password:                  # 代理认证密码
+    non-proxy-hosts: localhost|127.0.0.1|api.deepseek.com  # 不走代理的主机(|分隔，支持 *.domain)
+
+  # 本地模型管理（嵌入/重排）：本地优先 + 缺失可选自动下载（魔搭 ModelScope）
+  models:
+    auto-download-enabled: false   # 全局：模型文件缺失时是否自动联网拉取；false=只本地优先，缺失仅降级
+    models:
+      - key: bge-m3
+        enabled: true
+        auto-download: false       # 你本地已有 bge-m3，放进 data/models/bge-m3 即就绪；不自动下载
+        local-dir: data/models/bge-m3
+      - key: bge-small-zh
+        enabled: true
+        auto-download: false       # 缺失时可在 WebUI 面板手动触发下载
+        local-dir: data/models/bge-small-zh
+      # reranker 按需启用（注意 ModelScope 上 ONNX 文件名需核对）
+      # - key: bge-reranker-v2-m3
+      #   enabled: true
+      #   auto-download: false
+      #   local-dir: data/models/bge-reranker-v2-m3
 
 # Spring Boot Actuator 监控配置
 management:

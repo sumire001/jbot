@@ -71,6 +71,12 @@
             <artifactId>org.eclipse.jgit</artifactId>
             <version>6.7.0.202309050840-r</version>
         </dependency>
+        <!-- 本地向量模型推理：ONNX Runtime（Java 绑定自带跨平台原生库，含 INT8 量化算子） -->
+        <dependency>
+            <groupId>com.microsoft.onnxruntime</groupId>
+            <artifactId>onnxruntime</artifactId>
+            <version>1.18.0</version>
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>
