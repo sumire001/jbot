@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
     <title>ichikaBot 控制台</title>
-    <link rel="stylesheet" href="/css/theme.css?v=20260815">
+    <link rel="stylesheet" href="/css/theme.css?v=20261031g">
     <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
-    <script src="https://unpkg.com/lucide@latest" defer></script>
-    <style>
+    <script src="/js/lucide.min.js?v=20261031g" defer></script>
+    <script src="/js/app.js?v=20261031h"></script>
+    <style id="page-style">
         .overview-header {
             display: flex;
             justify-content: space-between;
@@ -351,30 +352,10 @@
                 </div>
             </div>
         </div>
-    </main>
-
-    <nav class="bottom-nav">
-        <div class="bottom-nav-items">
-            <a href="/" class="bottom-nav-item active"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
-            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
-            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
-            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
-            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
-        </div>
-    </nav>
-
-    <div class="toast-container" id="toast-container"></div>
-
-    <script src="/js/theme.js"></script>
     <script>
-        function showToast(msg, type='info') {
-            const c = document.getElementById('toast-container');
-            const t = document.createElement('div');
-            t.className = 'toast ' + type;
-            t.textContent = msg;
-            c.appendChild(t);
-            setTimeout(() => t.remove(), 3000);
-        }
+    (function () {
+        var _timers = [];
+        var bootTime = 0;
 
         async function loadDashboard() {
             try {
@@ -388,8 +369,6 @@
                 }
             } catch (e) { console.error(e); }
         }
-
-        let bootTime = 0;
 
         function formatUptime(ms) {
             const s = Math.floor(ms / 1000) % 60;
@@ -440,28 +419,39 @@
             }
         }
 
-        async function handleLogout() {
-            try {
-                const res = await fetch('/api/auth/logout', { method: 'POST' });
-                if (res.ok) window.location.href = '/login';
-            } catch (e) {
-                window.location.href = '/login';
-            }
+        function init() {
+            checkAuth();
+            loadDashboard();
+            loadJvmInfo();
+            _timers.push(setInterval(loadDashboard, 5000));
+            _timers.push(setInterval(updateUptime, 1000));
         }
 
-        async function checkAuth() {
-            try {
-                const res = await fetch('/api/auth/status');
-                const json = await res.json();
-                if (!json.authenticated) window.location.href = '/login';
-            } catch (e) {}
+        function destroy() {
+            _timers.forEach(clearInterval);
+            _timers = [];
         }
 
-        checkAuth();
-        loadDashboard();
-        loadJvmInfo();
-        setInterval(loadDashboard, 5000);
-        setInterval(updateUptime, 1000);
+        window.triggerGC = triggerGC;  // 供页面按钮 onclick 调用
+        window.JOnePage = { init: init, destroy: destroy };
+        init();
+    })();
     </script>
+    </main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item active"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js?v=20261031"></script>
+
 </body>
 </html>

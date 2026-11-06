@@ -51,7 +51,8 @@ public class CommandConfig {
             "categories",
             "peek",
             "look",
-            "ickb30"
+            "ickb30",
+            "状态"
     ));
 
     /**
@@ -92,6 +93,7 @@ public class CommandConfig {
         m.put("peek", "peek");
         m.put("look", "look");
         m.put("ickb30", "ickb30,b30,pjsk b30");
+        m.put("状态", "status");
         DEFAULT_ALIASES = Collections.unmodifiableMap(m);
     }
 
@@ -116,6 +118,7 @@ public class CommandConfig {
         m.put("categories", false);
         m.put("peek", false);
         m.put("look", false);
+        m.put("状态", false);
         DEFAULT_PERMISSIONS = Collections.unmodifiableMap(m);
     }
 

@@ -16,6 +16,15 @@ spring:
       max-file-size: 6MB       # 单个文件最大 6MB（业务上限 5MB + 余量）
       max-request-size: 6MB    # 整个请求最大 6MB
 
+  # 静态资源（含 favicon / css / js）HTTP 缓存：浏览器长期缓存、不再每次整页刷新都重新拉取，
+  # 消除标签页 favicon 闪烁。配合各资源已有的 ?v= 版本号做缓存失效，二者互不冲突。
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          max-age: 365d
+          immutable: true
+
 # Bot配置
 bot:
   #   admin:
@@ -141,6 +150,13 @@ bot:
     render-proot-bin: /data/data/com.termux/files/usr/bin/proot-distro
     render-container: debian     # chromium 装在哪个 proot-distro 容器
     render-temp-dir: ./data/sekai/render  # 渲染临时目录，需在 Termux home 下以便容器读写
+  # 状态面板（/状态 命令）渲染配置：同 sekai 的本地无头 Chromium 截图链路，见 StatusImageRenderer
+  status:
+    render-width: 960            # 截图窗口宽度(px)，模板面板 920 宽 + 左右留白
+    render-height: 620           # 截图窗口高度(px)，模板面板最小 580 高 + 上下留白
+    render-proot-bin: /data/data/com.termux/files/usr/bin/proot-distro
+    render-container: debian     # chromium 装在哪个 proot-distro 容器
+    render-temp-dir: ./data/status-render  # 渲染临时目录，需在 Termux home 下以便容器读写
   # 出站代理配置（让工具调用经代理出口获取外网信息；DeepSeek 对话默认直连）
   proxy:
     enabled: true               # 是否启用；true 时网页搜索/图片/图库/二次元图/远程git 等走代理

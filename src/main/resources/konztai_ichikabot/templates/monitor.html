@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
     <title>实时监控 - ichikaBot</title>
-    <link rel="stylesheet" href="/css/theme.css?v=20260815">
+    <link rel="stylesheet" href="/css/theme.css?v=20261031g">
     <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
-    <script src="https://unpkg.com/lucide@latest" defer></script>
-    <style>
+    <script src="/js/lucide.min.js?v=20261031g" defer></script>
+    <script src="/js/app.js?v=20261031h"></script>
+    <style id="page-style">
         .monitor-header {
             display: flex;
             justify-content: space-between;
@@ -196,7 +197,7 @@
     <main class="main-content">
         <div class="page-content">
             <div class="monitor-header">
-                <h1 style="font-size: 28px; font-weight: 700; color: var(--text-primary);">实时监控</h1>
+                <h1 style="font-size: clamp(20px, 6vw, 28px); font-weight: 700; color: var(--text-primary);">实时监控</h1>
                 <button class="btn btn-secondary btn-sm" onclick="triggerGC()"><i data-lucide="trash-2"></i> 触发 GC</button>
             </div>
 
@@ -231,22 +232,12 @@
                 </table>
             </div>
         </div>
-    </main>
+        <script>
+    (function () {
+        var _timers = [];
+        var _origSetInterval = window.setInterval;
+        function setInterval(fn, ms) { var id = _origSetInterval(fn, ms); _timers.push(id); return id; }
 
-    <nav class="bottom-nav">
-        <div class="bottom-nav-items">
-            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
-            <a href="/monitor-page" class="bottom-nav-item active"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
-            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
-            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
-            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
-        </div>
-    </nav>
-
-    <div class="toast-container" id="toast-container"></div>
-
-    <script src="/js/theme.js"></script>
-    <script>
         const heapHistory = [];
 
         function showToast(msg) {
@@ -393,6 +384,26 @@
         loadJvmInfo();
         setInterval(loadMonitor, 3000);
         window.addEventListener('resize', drawChart);
+    
+        if (typeof triggerGC !== 'undefined') window.triggerGC = triggerGC;
+        window.JOnePage = { destroy: function () { _timers.forEach(function (id) { clearInterval(id); }); _timers = []; } };
+    })();
     </script>
+</main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item active"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js?v=20261031"></script>
+    
 </body>
 </html>

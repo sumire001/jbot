@@ -23,6 +23,12 @@
             border-radius: 16px;
             margin-bottom: 20px;
             overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .config-panel:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            transform: translateY(-2px);
         }
 
         .config-panel-header {
@@ -46,7 +52,7 @@
             content: '';
             width: 3px;
             height: 16px;
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             border-radius: 2px;
         }
 
@@ -139,16 +145,13 @@
         }
 
         .btn-primary {
-            background: var(--accent);
+            background: var(--gradient-primary);
             color: #fff;
         }
 
         .btn-primary:hover {
-            background: var(--accent-hover);
-        }
-
-        .btn-primary:active {
-            background: var(--accent);
+            opacity: 0.9;
+            transform: translateY(-1px);
         }
 
         .btn-secondary {
@@ -200,7 +203,7 @@
         }
 
         .switch input:checked + .slider {
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             border-color: transparent;
         }
 
@@ -323,7 +326,7 @@
             transition: 0.3s;
         }
         .switch-input:checked + .switch-slider-sm {
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             border-color: transparent;
         }
         .switch-input:checked + .switch-slider-sm:before {
@@ -348,12 +351,12 @@
         }
         .cmd-add-row .form-input { background: var(--bg-card); }
         .btn-add {
-            background: var(--accent); color: #fff; border: none;
+            background: var(--gradient-primary); color: #fff; border: none;
             padding: 9px 18px; border-radius: 8px; cursor: pointer;
-            font-size: 13px; font-weight: 500; transition: background 0.2s;
+            font-size: 13px; font-weight: 500; transition: opacity 0.2s;
             flex-shrink: 0;
         }
-        .btn-add:hover { background: var(--accent-hover); }
+        .btn-add:hover { opacity: 0.85; }
 
         @media (max-width: 768px) {
             .page-title { font-size: 22px; }
@@ -362,8 +365,26 @@
             .form-grid { grid-template-columns: 1fr; }
             .btn { padding: 14px 20px; font-size: 16px; min-height: 48px; }
             .form-input { padding: 14px; font-size: 16px; min-height: 48px; }
-            .toast-container { top: calc(var(--navbar-height) + 8px); right: 8px; }
+            .toast-container { top: 64px; right: 8px; }
             .toast { min-width: 180px; font-size: 12px; padding: 8px 14px; }
             .theme-radio-group { grid-template-columns: 1fr; }
 
+            /* 命令列表：移动端改为纵向卡片，避免 ~498px 最小宽度横向溢出 */
+            .cmd-list-header { display: none; }
+            .cmd-row, .cmd-add-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+                padding: 14px 16px;
+            }
+            .col-cmd-name, .col-cmd-alias, .col-cmd-perm, .col-cmd-action {
+                width: auto;
+                min-width: 0;
+                flex: none;
+            }
+            .col-cmd-perm { justify-content: flex-start; }
+            .cmd-add-row .form-input { width: 100%; }
+            .btn-add { width: 100%; padding: 12px; }
+            .btn-del { padding: 8px 12px; min-height: 36px; }
+            .form-textarea { font-size: 16px; }
         }

@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
     <title>通用设置 - ichikaBot</title>
-    <link rel="stylesheet" href="/css/theme.css?v=20260815">
+    <link rel="stylesheet" href="/css/theme.css?v=20261031g">
     <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
-    <script src="https://unpkg.com/lucide@latest" defer></script>
-    <style>
+    <script src="/js/lucide.min.js?v=20261031g" defer></script>
+    <script src="/js/app.js?v=20261031h"></script>
+    <style id="page-style">
         .page-header {
             display: flex;
             justify-content: space-between;
@@ -57,7 +58,7 @@
             content: '';
             width: 3px;
             height: 16px;
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             border-radius: 2px;
         }
 
@@ -150,7 +151,7 @@
         }
 
         .btn-primary {
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             color: #fff;
         }
 
@@ -208,7 +209,7 @@
         }
 
         .switch input:checked + .slider {
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             border-color: transparent;
         }
 
@@ -269,8 +270,34 @@
             background: rgba(0, 217, 255, 0.1);
         }
 
-        .theme-radio-icon { font-size: 24px; margin-bottom: 4px; }
+        .theme-radio-icon { font-size: 22px; margin-bottom: 4px; display: inline-block; width: 22px; height: 22px; vertical-align: middle; }
         .theme-radio-label { font-size: 13px; color: var(--text-primary); }
+
+        /* 主题选项卡：内置配色预览（使用固定色，不受页面当前主题影响，
+           也不依赖 CSS 变量，避免重蹈之前 [data-theme] 选择器泄漏的覆辙） */
+        .theme-preview {
+            height: 46px;
+            margin: 8px 2px 6px;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255,255,255,0.14);
+        }
+        .theme-preview--light { background: #f1f5f9; border-color: #e2e8f0; }
+        .theme-preview--dark  { background: #1a1f2e; border-color: #2a3344; }
+        .theme-preview--system { flex-direction: row; }
+        .theme-preview--system .tp-half { flex: 1; }
+        .tp-half--dark  { background: #1a1f2e; box-shadow: 1px 0 0 rgba(255,255,255,0.18); }
+        .tp-half--light { background: #f1f5f9; }
+        .tp-bar { height: 12px; }
+        .theme-preview--light .tp-bar { background: #e2e8f0; }
+        .theme-preview--dark  .tp-bar { background: #232a3b; }
+        .tp-line { height: 5px; border-radius: 3px; margin: 0 8px; }
+        .tp-line--lg { margin-top: 7px; }
+        .tp-line--sm { width: 55%; margin-top: 5px; }
+        .theme-preview--light .tp-line { background: #cbd5e1; }
+        .theme-preview--dark  .tp-line { background: #334155; }
 
         /* --- 命令配置统一表格布局 --- */
         .cmd-list-header {
@@ -331,7 +358,7 @@
             transition: 0.3s;
         }
         .switch-input:checked + .switch-slider-sm {
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             border-color: transparent;
         }
         .switch-input:checked + .switch-slider-sm:before {
@@ -356,7 +383,7 @@
         }
         .cmd-add-row .form-input { background: var(--bg-card); }
         .btn-add {
-            background: var(--gradient-1); color: #fff; border: none;
+            background: var(--gradient-primary); color: #fff; border: none;
             padding: 9px 18px; border-radius: 8px; cursor: pointer;
             font-size: 13px; font-weight: 500; transition: opacity 0.2s;
             flex-shrink: 0;
@@ -370,10 +397,28 @@
             .form-grid { grid-template-columns: 1fr; }
             .btn { padding: 14px 20px; font-size: 16px; min-height: 48px; }
             .form-input { padding: 14px; font-size: 16px; min-height: 48px; }
-            .toast-container { top: calc(var(--navbar-height) + 8px); right: 8px; }
+            .toast-container { top: 64px; right: 8px; }
             .toast { min-width: 180px; font-size: 12px; padding: 8px 14px; }
             .theme-radio-group { grid-template-columns: 1fr; }
 
+            /* 命令列表：移动端改为纵向卡片，避免 ~498px 最小宽度横向溢出 */
+            .cmd-list-header { display: none; }
+            .cmd-row, .cmd-add-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+                padding: 14px 16px;
+            }
+            .col-cmd-name, .col-cmd-alias, .col-cmd-perm, .col-cmd-action {
+                width: auto;
+                min-width: 0;
+                flex: none;
+            }
+            .col-cmd-perm { justify-content: flex-start; }
+            .cmd-add-row .form-input { width: 100%; }
+            .btn-add { width: 100%; padding: 12px; }
+            .btn-del { padding: 8px 12px; min-height: 36px; }
+            .form-textarea { font-size: 16px; }
         }
     </style>
 </head>
@@ -473,14 +518,28 @@
                         <div class="theme-radio-group">
                             <div class="theme-radio" data-theme="system" onclick="setGeneralTheme('system')">
                                 <i data-lucide="monitor" class="theme-radio-icon"></i>
+                                <div class="theme-preview theme-preview--system">
+                                    <span class="tp-half tp-half--dark"></span>
+                                    <span class="tp-half tp-half--light"></span>
+                                </div>
                                 <div class="theme-radio-label">跟随系统</div>
                             </div>
                             <div class="theme-radio" data-theme="light" onclick="setGeneralTheme('light')">
                                 <i data-lucide="sun" class="theme-radio-icon"></i>
+                                <div class="theme-preview theme-preview--light">
+                                    <span class="tp-bar"></span>
+                                    <span class="tp-line tp-line--lg"></span>
+                                    <span class="tp-line tp-line--sm"></span>
+                                </div>
                                 <div class="theme-radio-label">浅色模式</div>
                             </div>
                             <div class="theme-radio" data-theme="dark" onclick="setGeneralTheme('dark')">
                                 <i data-lucide="moon" class="theme-radio-icon"></i>
+                                <div class="theme-preview theme-preview--dark">
+                                    <span class="tp-bar"></span>
+                                    <span class="tp-line tp-line--lg"></span>
+                                    <span class="tp-line tp-line--sm"></span>
+                                </div>
                                 <div class="theme-radio-label">暗色模式</div>
                             </div>
                         </div>
@@ -724,22 +783,12 @@
             </div>
 
         </div>
-    </main>
+        <script>
+    (function () {
+        var _timers = [];
+        var _origSetInterval = window.setInterval;
+        function setInterval(fn, ms) { var id = _origSetInterval(fn, ms); _timers.push(id); return id; }
 
-    <nav class="bottom-nav">
-        <div class="bottom-nav-items">
-            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
-            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
-            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
-            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
-            <a href="/general-settings-page" class="bottom-nav-item active"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
-        </div>
-    </nav>
-
-    <div class="toast-container" id="toast-container"></div>
-
-    <script src="/js/theme.js"></script>
-    <script>
         function showToast(msg, type='info') {
             const c = document.getElementById('toast-container');
             const t = document.createElement('div');
@@ -1375,6 +1424,41 @@
         loadConfig();
         updateGeneralThemeUI();
         document.getElementById('ai-system-prompt').addEventListener('input', updatePromptCount);
+    
+        if (typeof deleteUserMemory !== 'undefined') window.deleteUserMemory = deleteUserMemory;
+        if (typeof downloadModel !== 'undefined') window.downloadModel = downloadModel;
+        if (typeof getUserMemory !== 'undefined') window.getUserMemory = getUserMemory;
+        if (typeof hideUserMemoryDetails !== 'undefined') window.hideUserMemoryDetails = hideUserMemoryDetails;
+        if (typeof loadUserMemories !== 'undefined') window.loadUserMemories = loadUserMemories;
+        if (typeof resetSystemPrompt !== 'undefined') window.resetSystemPrompt = resetSystemPrompt;
+        if (typeof saveUserMemory !== 'undefined') window.saveUserMemory = saveUserMemory;
+        if (typeof setGeneralTheme !== 'undefined') window.setGeneralTheme = setGeneralTheme;
+        if (typeof toggleGalleryApiKeyVisibility !== 'undefined') window.toggleGalleryApiKeyVisibility = toggleGalleryApiKeyVisibility;
+        if (typeof updateAdmin !== 'undefined') window.updateAdmin = updateAdmin;
+        if (typeof updateCache !== 'undefined') window.updateCache = updateCache;
+        if (typeof updateCompression !== 'undefined') window.updateCompression = updateCompression;
+        if (typeof updateDownload !== 'undefined') window.updateDownload = updateDownload;
+        if (typeof updateGallery !== 'undefined') window.updateGallery = updateGallery;
+        if (typeof updateProxy !== 'undefined') window.updateProxy = updateProxy;
+        if (typeof updateSystemPrompt !== 'undefined') window.updateSystemPrompt = updateSystemPrompt;
+        window.JOnePage = { destroy: function () { _timers.forEach(function (id) { clearInterval(id); }); _timers = []; } };
+    })();
     </script>
+</main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item active"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js?v=20261031"></script>
+    
 </body>
 </html>

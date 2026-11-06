@@ -26,11 +26,11 @@
     --bg-tertiary: #232a3b;
     --bg-input: #1a1f2e;
     --border-color: #2a3344;
-    --border-light: #1e293b;
+    --border-light: #283246;
 
     --text-primary: #f1f5f9;
     --text-secondary: #94a3b8;
-    --text-muted: #64748b;
+    --text-muted: #7c8aa0;
 
     --accent: #3b82f6;
     --accent-hover: #2563eb;
@@ -43,8 +43,6 @@
 
     --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
     --gradient-sidebar-logo: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-    /* 兼容各页面内联 style 引用的青紫渐变 */
-    --gradient-1: linear-gradient(135deg, #00d9ff 0%, #b14cff 100%);
 
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
@@ -59,7 +57,10 @@
 }
 
 /* ======================== 亮色主题 ======================== */
-[data-theme="light"] {
+/* 必须限定在根节点：裸写 [data-theme="light"] 会匹配任何带该属性的元素，
+   例如通用设置页的主题选项卡 <div class="theme-radio" data-theme="light">，
+   导致亮色变量被误套进卡片内部（卡片变白、图标隐身） */
+:root[data-theme="light"] {
     --sidebar-bg: #ffffff;
     --sidebar-hover: #f1f5f9;
     --sidebar-active: #e2e8f0;
@@ -78,7 +79,7 @@
 
     --text-primary: #111827;
     --text-secondary: #6b7280;
-    --text-muted: #9ca3af;
+    --text-muted: #7b8794;
 
     --accent-soft: rgba(59,130,246,0.08);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
@@ -239,10 +240,19 @@ a { text-decoration: none; color: inherit; }
 .nav-icon {
     width: 18px;
     height: 18px;
+    display: inline-block;        /* 占位时即占满 18x18，图标注入后文字不再抖动 */
+    vertical-align: middle;
     stroke-width: 1.75;
     flex-shrink: 0;
     opacity: 0.9;
 }
+
+/* 占位标签与注入后的 svg 都居中，避免 baseline 漂移 */
+[data-lucide], svg.lucide { vertical-align: middle; }
+
+/* 图标注入后柔和“落位”动画，消除整页刷新时图标啪一下出现的生硬感（仅用 transform，不碰 opacity，保留 .nav-icon 既有 0.9 透明度） */
+svg.lucide { animation: lucidePop .2s ease both; }
+@keyframes lucidePop { from { transform: scale(.88); } to { transform: scale(1); } }
 
 .nav-item.active .nav-icon {
     color: var(--accent);
@@ -386,6 +396,7 @@ body.sidebar-collapsed .sidebar-expand-btn {
     font-weight: 800;
     color: var(--text-primary);
     letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
 }
 
 .stat-value .unit {
@@ -402,6 +413,13 @@ body.sidebar-collapsed .sidebar-expand-btn {
     border-radius: var(--radius-lg);
     overflow: hidden;
     margin-bottom: 20px;
+    transition: all var(--transition);
+}
+
+.panel:hover {
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
 }
 
 .panel-header {
@@ -759,8 +777,8 @@ body.sidebar-collapsed .sidebar-expand-btn {
 .topbar-left { display: flex; align-items: center; gap: 12px; }
 
 .menu-toggle {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -808,8 +826,15 @@ body.sidebar-collapsed .sidebar-expand-btn {
         margin-left: 0 !important;
     }
 
-    .sidebar.open { transform: translateX(0); }
-    .sidebar.collapsed { margin-left: 0 !important; transform: translateX(-100%); }
+    /* 移动端抽屉显隐只由 .open 决定：桌面端残留的 .collapsed（localStorage 记忆）
+       不得覆盖 .open，否则汉堡菜单点了只出遮罩、侧边栏不滑入 */
+    .sidebar.collapsed { margin-left: 0 !important; }
+    .sidebar:not(.open) { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); z-index: 102; }
+
+    /* 移动端该按钮语义是「关闭抽屉」，图标固定为朝左，不随桌面折叠态翻转 */
+    .sidebar.collapsed .sidebar-collapse-btn .collapse-icon-open { display: inline-block; }
+    .sidebar.collapsed .sidebar-collapse-btn .collapse-icon-closed { display: none; }
 
     .sidebar-expand-btn { display: none !important; }
 
@@ -820,7 +845,7 @@ body.sidebar-collapsed .sidebar-expand-btn {
         padding-bottom: calc(var(--bottom-nav-height) + 16px);
     }
 
-    .topbar { display: flex; }
+    .topbar { display: flex; z-index: 101; }
     .bottom-nav { display: block; }
     #sidebar-overlay { display: block; opacity: 0; pointer-events: none; }
     #sidebar-overlay.show { opacity: 1; pointer-events: auto; }
@@ -841,4 +866,29 @@ body.sidebar-collapsed .sidebar-expand-btn {
     .stat-card { padding: 16px 18px; }
     .panel-header { padding: 14px 16px; flex-direction: column; align-items: flex-start; }
     .panel-body { padding: 16px; }
+}
+
+/* ======================== 骨架屏 ======================== */
+/* 加载态占位：渐变流光动画，暗/亮主题均基于 --bg-tertiary / --border-light 自适应 */
+.skeleton {
+    background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-light) 37%, var(--bg-tertiary) 63%);
+    background-size: 400% 100%;
+    animation: skeletonShimmer 1.4s ease infinite;
+}
+@keyframes skeletonShimmer {
+    0%   { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+.skeleton-card {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.skeleton-img { width: 100%; height: 140px; border-radius: 0; }
+.skeleton-line { height: 10px; margin: 10px 10px 0; border-radius: 4px; }
+.skeleton-line.short { width: 50%; margin-bottom: 12px; }
+
+@media (max-width: 768px) {
+    .skeleton-img { height: 100px; }
 }

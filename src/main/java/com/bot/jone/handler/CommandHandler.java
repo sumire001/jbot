@@ -25,6 +25,8 @@ import org.springframework.stereotype.Component;
 import javax.websocket.Session;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.Base64;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -83,6 +85,12 @@ public class CommandHandler {
 
     @Autowired
     private com.bot.jone.sekai.SekaiService sekaiService;
+
+    @Autowired
+    private com.bot.jone.status.StatusImageRenderer statusImageRenderer;
+
+    @Autowired
+    private com.bot.jone.status.SystemStatusCollector statusCollector;
 
     private final Random random = new Random();
 
@@ -167,6 +175,8 @@ public class CommandHandler {
             handleLook(event, session, commandBody);
         } else if (commandConfig.matches(commandBody, "ickb30")) {
             handleB30(event, session, extractParams(commandBody, "ickb30").trim());
+        } else if (commandConfig.matches(commandBody, "状态")) {
+            handleStatus(event, session);
         }
     }
 
@@ -497,6 +507,68 @@ public class CommandHandler {
         sekaiService.bind(event.getUserId(), region, 0, gameUid, main);
         apiClient.sendText(session, msgType, targetId,
                 "已绑定 " + region + " 服游戏ID " + gameUid + (main ? "（主账号）" : ""));
+    }
+
+    /**
+     * 处理状态面板命令 /状态（别名 status，公开）。
+     * 实时采集本机 CPU/内存/系统版本 + OneBot get_version_info 的 NapCat/QQ 版本，
+     * 渲染浅色状态图后发出。渲染走异步线程（chromium 截图耗时数秒，勿卡消息线程）。
+     */
+    private void handleStatus(OneBotEvent event, Session session) {
+        String msgType = event.getMessageType();
+        Long targetId = "group".equals(msgType) ? event.getGroupId() : event.getUserId();
+        CompletableFuture.runAsync(() -> {
+            try {
+                Map<String, String> data = statusCollector.collect();
+                JSONObject v = apiClient.getVersionInfo(session);
+                data.put("NAPCAT_VERSION", versionField(v, "app_version"));
+                data.put("QQ_VERSION", versionField(v, "qq_version", "qqVersion", "nt_version"));
+
+                // 左上角机器人身份：get_login_info（user_id/nickname）+ QQ 头像接口
+                JSONObject login = apiClient.getLoginInfo(session);
+                JSONObject loginData = login != null && login.getJSONObject("data") != null
+                        ? login.getJSONObject("data") : login;
+                Long botId = loginData != null ? loginData.getLong("user_id") : null;
+                if (botId == null) botId = event.getSelfId();       // 事件自带的 self_id 兜底
+                String botName = loginData != null ? loginData.getString("nickname") : null;
+                data.put("BOT_ID", botId != null ? String.valueOf(botId) : "unknown");
+                data.put("BOT_NAME", botName != null && !botName.isBlank() ? botName : "unknown");
+                if (botId != null) {
+                    // QQ 官方头像接口（40~100KB），失败由渲染器回退 SVG 占位图
+                    byte[] avatar = imageDownloader.downloadImage(
+                            "https://q1.qlogo.cn/g?b=qq&nk=" + botId + "&s=640");
+                    if (avatar != null && avatar.length > 0) {
+                        data.put("AVATAR_B64", Base64.getEncoder().encodeToString(avatar));
+                    }
+                }
+
+                byte[] png = statusImageRenderer.render(data);
+                File tmp = new File(imagesConfig.getTempDir(),
+                        "status_" + System.currentTimeMillis() + ".png");
+                try (FileOutputStream fos = new FileOutputStream(tmp)) {
+                    fos.write(png);
+                }
+                boolean sent = apiClient.sendImageBase64(session, msgType, targetId, tmp);
+                if (!sent) {
+                    apiClient.sendText(session, msgType, targetId, "状态图发送超时/失败（可能是单帧过大）");
+                }
+            } catch (Exception e) {
+                log.error("[Status] 状态面板生成异常", e);
+                apiClient.sendText(session, msgType, targetId, "状态面板生成失败：" + e.getMessage());
+            }
+        });
+    }
+
+    /** 从 get_version_info 回包取版本字段（兼容 data 包裹层）；拿不到降级 "unknown" */
+    private static String versionField(JSONObject resp, String... keys) {
+        if (resp == null) return "unknown";
+        JSONObject src = resp.getJSONObject("data");
+        if (src == null) src = resp;
+        for (String k : keys) {
+            String val = src.getString(k);
+            if (val != null && !val.isBlank()) return val;
+        }
+        return "unknown";
     }
 
     private static boolean isGalleryImage(String name) {

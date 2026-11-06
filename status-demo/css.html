@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Status Dashboard</title>
+    
+    <style>
+        /* 基础样式重置 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            /* 优雅的系统自带艺术衬线字体 */
+            font-family: "Georgia", "Times New Roman", "Noto Serif SC", "Songti SC", "SimSun", serif;
+            background-color: #0f1014;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e0e0e0;
+        }
+
+        /* 主容器 */
+        .dashboard {
+            width: 920px;
+            max-width: 95%;
+            min-height: 580px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            display: flex;
+            background-color: #1a1c23;
+        }
+
+        /* === 左侧系统信息边栏 === */
+        .sidebar {
+            width: 300px;
+            padding: 35px 28px;
+            background: rgba(18, 19, 24, 0.95);
+            display: flex;
+            flex-direction: column;
+            z-index: 2;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 45px;
+            position: relative;
+        }
+
+        .profile-avatar-container {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: #2a2b35;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background-color: #34c759;
+            border-radius: 50%;
+            position: absolute;
+            left: 45px;
+            top: 38px;
+            border: 2px solid #121318;
+        }
+
+        .profile-info {
+            margin-left: 18px;
+        }
+
+        .profile-name {
+            font-size: 20px;
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .profile-id {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.3);
+            font-family: "Georgia", "Times New Roman", serif;
+        }
+
+        .section-title {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.25);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        
+        .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .info-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .info-icon {
+            width: 16px;
+            height: 16px;
+            background-color: rgba(255, 255, 255, 0.06);
+            border-radius: 3px;
+            margin-right: 16px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .info-text {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            line-height: 1.5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .info-text strong {
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        /* === 右侧硬件内容区 === */
+        .main-content {
+            flex: 1;
+            position: relative;
+            z-index: 1;
+            background-image: url('status-bg.png'); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            padding: 40px 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .main-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(26, 28, 35, 0.4) 0%, rgba(26, 28, 35, 0.8) 100%);
+            z-index: -1;
+        }
+
+        .resource-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 50px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .resource-section h2 {
+            font-family: "Georgia", "Times New Roman", "Noto Serif SC", "Songti SC", serif;
+            font-size: 18px;
+            color: #ffffff;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        .resource-section h2 .icon-svg {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.7);
+            stroke-width: 1.2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* 核心改动：双列布局网格 */
+        .details-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px 40px;
+            align-items: flex-end; /* 让内容在底部对齐，保证视觉整齐 */
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.35);
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+            font-family: "Georgia", "Times New Roman", serif;
+            font-size: 16px;
+            color: #ffffff;
+            font-weight: 400;
+        }
+
+        /* 内存环形图表 */
+        .memory-chart {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background: conic-gradient(#d49a6a 0% 58%, rgba(255, 255, 255, 0.03) 58% 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-inner {
+            width: 92px;
+            height: 92px;
+            background-color: rgba(26, 28, 35, 0.95);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .chart-percent {
+            font-family: "Georgia", "Times New Roman", serif;
+            font-size: 24px;
+            font-weight: 500;
+            color: #ffffff;
+            letter-spacing: 1px;
+        }
+        
+        .chart-label {
+            font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 4px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <!-- 左侧系统信息 -->
+        <aside class="sidebar">
+            <div class="profile-header">
+                <div class="profile-avatar-container">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                </div>
+                <div class="status-dot"></div>
+                <div class="profile-info">
+                    <div class="profile-name">ichikaBot</div>
+                    <div class="profile-id">2303233051</div>
+                </div>
+            </div>
+
+            <div class="section-title">系统信息</div>
+            <ul class="info-list">
+                <li class="info-item">
+                    <div class="info-icon"></div>
+                    <div class="info-text">NapCat 版本 <strong>4.18.38</strong></div>
+                </li>
+                <li class="info-item">
+                    <div class="info-icon"></div>
+                    <div class="info-text">QQ 版本 <strong>3.2.34-53644</strong></div>
+                </li>
+                <li class="info-item">
+                    <div class="info-icon"></div>
+                    <div class="info-text">系统版本 <strong>linux arm64 6.17.0-PRoot-Distro</strong></div>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- 右侧硬件数据区 -->
+        <main class="main-content">
+            <div class="resource-grid">
+                
+                <!-- CPU 模块 -->
+                <div class="resource-section">
+                    <h2>
+                        <svg class="icon-svg" viewBox="0 0 24 24">
+                            <rect x="5" y="5" width="14" height="14" rx="2" ry="2"></rect>
+                            <rect x="9" y="9" width="6" height="6" rx="1" ry="1"></rect>
+                            <line x1="8" y1="1" x2="8" y2="5"></line>
+                            <line x1="12" y1="1" x2="12" y2="5"></line>
+                            <line x1="16" y1="1" x2="16" y2="5"></line>
+                            <line x1="8" y1="19" x2="8" y2="23"></line>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="16" y1="19" x2="16" y2="23"></line>
+                            <line x1="1" y1="8" x2="5" y2="8"></line>
+                            <line x1="1" y1="12" x2="5" y2="12"></line>
+                            <line x1="1" y1="16" x2="5" y2="16"></line>
+                            <line x1="19" y1="8" x2="23" y2="8"></line>
+                            <line x1="19" y1="12" x2="23" y2="12"></line>
+                            <line x1="19" y1="16" x2="23" y2="16"></line>
+                        </svg>
+                        CPU
+                    </h2>
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">型号</span>
+                            <span class="detail-value">unknown</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">主频</span>
+                            <span class="detail-value">0.61GHz</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">内核数</span>
+                            <span class="detail-value">8</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">bot主线程</span>
+                            <span class="detail-value">0.26%</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">使用率</span>
+                            <span class="detail-value">0.00%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 内存 模块 (环形图移动到 bot主线程 位置) -->
+                <div class="resource-section">
+                    <h2>
+                        <svg class="icon-svg" viewBox="0 0 24 24">
+                            <path d="M4 6L4 17C4 17.5523 4.44772 18 5 18H19C19.5523 18 20 17.5523 20 17V6H16L14 4H6C5.44772 4 5 4.44772 5 5V6H4Z" stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linejoin="round" fill="none"></path>
+                            <line x1="7" y1="18" x2="7" y2="22"></line>
+                            <line x1="10" y1="18" x2="10" y2="22"></line>
+                            <line x1="14" y1="18" x2="14" y2="22"></line>
+                            <line x1="17" y1="18" x2="17" y2="22"></line>
+                        </svg>
+                        内存
+                    </h2>
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">总量</span>
+                            <span class="detail-value">7185.96 MB</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">使用量</span>
+                            <span class="detail-value">4164.71 MB</span>
+                        </div>
+                        <!-- 内存环形图 (替换了原来的位置) -->
+                        <div class="memory-chart">
+                            <div class="chart-inner">
+                                <div class="chart-percent">58%</div>
+                                <div class="chart-label">内存占用</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </main>
+    </div>
+
+</body>
+</html>

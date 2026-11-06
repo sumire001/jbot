@@ -65,6 +65,13 @@ const ThemeManager = {
         const sidebar = document.getElementById('sidebar');
         if (!sidebar) return;
 
+        // 移动端侧边栏是抽屉，显隐由 .open 控制；此时该按钮的语义是「关闭抽屉」，
+        // 不能再去切桌面端的 .collapsed（那样点了没任何反应）
+        if (window.matchMedia('(max-width: 768px)').matches) {
+            this.closeSidebar();
+            return;
+        }
+
         const collapsed = !this.isSidebarCollapsed();
         localStorage.setItem(this.SIDEBAR_COLLAPSED, collapsed);
         this.applySidebarState(collapsed);

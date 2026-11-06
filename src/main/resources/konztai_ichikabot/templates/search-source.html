@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
     <title>搜索源管理 - ichikaBot</title>
-    <link rel="stylesheet" href="/css/theme.css?v=20260816">
-    <link rel="stylesheet" href="/css/config.css?v=20260816">
+    <link rel="stylesheet" href="/css/theme.css?v=20261031g">
+    <link rel="stylesheet" href="/css/config.css?v=20261031f">
     <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
-    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <script src="/js/lucide.min.js?v=20261031g" defer></script>
+    <script src="/js/app.js?v=20261031h"></script>
 </head>
 <body>
     <aside class="sidebar" id="sidebar">
@@ -91,7 +92,7 @@
             <div class="page-header">
                 <div>
                     <h1 class="page-title">搜索源管理</h1>
-                    <p class="page-subtitle">网页搜索后端切换（必应 / DuckDuckGo / 百度）</p>
+                    <p class="page-subtitle">网页搜索后端切换（必应 / DuckDuckGo / 百度）与百度百科工具配置</p>
                 </div>
             </div>
 
@@ -113,23 +114,34 @@
                     <button class="btn btn-primary" onclick="updateSearchEngine()">保存配置</button>
                 </div>
             </div>
+
+            <!-- 百度百科（AI 工具 baidu_baike 的配置） -->
+            <div class="config-panel">
+                <div class="config-panel-header">
+                    <h2 class="config-panel-title">百度百科 <span class="badge">可热更新</span></h2>
+                </div>
+                <div class="config-panel-body">
+                    <div class="form-group">
+                        <label class="form-label">启用百度百科工具</label>
+                        <label class="switch"><input type="checkbox" id="baike-enabled"><span class="slider"></span></label>
+                        <div class="form-hint">开启后 AI 可调用 baidu_baike 工具查询词条的释义与概述；关闭则不再提供该能力。</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">百度 API Key</label>
+                        <input type="password" id="baike-api-key" class="form-input" placeholder="留空则不修改">
+                        <div class="form-hint" id="baike-key-status">正在读取…</div>
+                        <div class="form-hint">百度千帆 AppBuilder 的 API Key（形如 bce-v3/ALTAK-...）。留空保存表示不修改；未在页面配置过时，自动读取环境变量 BAIDU_API_KEY。</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="updateBaikeConfig()">保存配置</button>
+                </div>
+            </div>
         </div>
-    </main>
+        <script>
+    (function () {
+        var _timers = [];
+        var _origSetInterval = window.setInterval;
+        function setInterval(fn, ms) { var id = _origSetInterval(fn, ms); _timers.push(id); return id; }
 
-    <nav class="bottom-nav">
-        <div class="bottom-nav-items">
-            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
-            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
-            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
-            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
-            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
-        </div>
-    </nav>
-
-    <div class="toast-container" id="toast-container"></div>
-
-    <script src="/js/theme.js"></script>
-    <script>
         function showToast(msg, type='info') {
             const c = document.getElementById('toast-container');
             const t = document.createElement('div');
@@ -192,9 +204,69 @@
             } catch (e) { console.error(e); }
         }
 
+        async function loadBaikeConfig() {
+            try {
+                const res = await fetch('/api/config/all');
+                const json = await res.json();
+                if (!json.success || !json.baike) return;
+                document.getElementById('baike-enabled').checked = json.baike.enabled;
+                const statusEl = document.getElementById('baike-key-status');
+                if (json.baike.source === 'config') {
+                    statusEl.textContent = '当前 Key：已配置（来自配置文件 config/application.yml）';
+                } else if (json.baike.source === 'env') {
+                    statusEl.textContent = '当前 Key：已配置（来自环境变量 BAIDU_API_KEY）';
+                } else {
+                    statusEl.textContent = '当前 Key：未配置，百度百科工具不可用';
+                }
+                const keyInput = document.getElementById('baike-api-key');
+                keyInput.value = '';
+                keyInput.placeholder = json.baike.configured ? '留空则不修改' : '请输入 AppBuilder API Key';
+            } catch (e) { console.error(e); }
+        }
+
+        async function updateBaikeConfig() {
+            const params = new URLSearchParams();
+            params.append('enabled', document.getElementById('baike-enabled').checked);
+            const keyInput = document.getElementById('baike-api-key');
+            if (keyInput.value.trim()) params.append('apiKey', keyInput.value.trim());
+            try {
+                const res = await fetch('/api/config/baike?' + params.toString(), { method: 'POST' });
+                const json = await res.json();
+                if (json.success) {
+                    showToast(json.message, 'success');
+                    keyInput.value = '';
+                    loadBaikeConfig();
+                } else {
+                    showToast('更新失败: ' + json.message, 'error');
+                }
+            } catch (e) { showToast('请求失败: ' + e.message, 'error'); }
+        }
+
         checkAuth();
         loadSearchEngine();
+        loadBaikeConfig();
         updateGeneralThemeUI();
+    
+        if (typeof updateBaikeConfig !== 'undefined') window.updateBaikeConfig = updateBaikeConfig;
+        if (typeof updateSearchEngine !== 'undefined') window.updateSearchEngine = updateSearchEngine;
+        window.JOnePage = { destroy: function () { _timers.forEach(function (id) { clearInterval(id); }); _timers = []; } };
+    })();
     </script>
+</main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js?v=20261031"></script>
+    
 </body>
 </html>

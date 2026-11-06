@@ -113,6 +113,42 @@ public class OneBotApiClient {
     }
 
     /**
+     * 同步获取机器人登录信息（get_login_info，标准 OneBot API）。
+     * 回包 data 含 user_id（机器人QQ号）/ nickname（QQ昵称）。
+     * 超时返回 null，调用方降级。
+     */
+    public JSONObject getLoginInfo(Session session) {
+        try {
+            CompletableFuture<JSONObject> f = sendRequest(session, "get_login_info", new JSONObject());
+            return f.get(5, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.warn("[get_login_info] 超时(5s)");
+            return null;
+        } catch (Exception e) {
+            log.warn("[get_login_info] 失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 同步获取 OneBot 实现版本信息（get_version_info）。
+     * NapCat 回包 data 含 app_name / app_version / protocol_version（QQ 版本视实现而定）。
+     * 超时返回 null，调用方降级为 "unknown"。
+     */
+    public JSONObject getVersionInfo(Session session) {
+        try {
+            CompletableFuture<JSONObject> f = sendRequest(session, "get_version_info", new JSONObject());
+            return f.get(5, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.warn("[get_version_info] 超时(5s)");
+            return null;
+        } catch (Exception e) {
+            log.warn("[get_version_info] 失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * 由 WebSocket 接收线程在收到带 echo 的 API 回包时调用，按 echo 唤醒对应 Future。
      * 处理 retcode != 0 的失败情况（以异常完成 Future）。
      */

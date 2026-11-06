@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
     <title>搜索源管理 - ichikaBot</title>
-    <link rel="stylesheet" href="/css/theme.css?v=20260816">
-    <link rel="stylesheet" href="/css/config.css?v=20260816">
+    <link rel="stylesheet" href="/css/theme.css?v=20261031g">
+    <link rel="stylesheet" href="/css/config.css?v=20261031f">
     <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
-    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <script src="/js/lucide.min.js?v=20261031g" defer></script>
+    <script src="/js/app.js?v=20261031h"></script>
 </head>
 <body>
     <aside class="sidebar" id="sidebar">
@@ -135,22 +136,12 @@
                 </div>
             </div>
         </div>
-    </main>
+        <script>
+    (function () {
+        var _timers = [];
+        var _origSetInterval = window.setInterval;
+        function setInterval(fn, ms) { var id = _origSetInterval(fn, ms); _timers.push(id); return id; }
 
-    <nav class="bottom-nav">
-        <div class="bottom-nav-items">
-            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
-            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
-            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
-            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
-            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
-        </div>
-    </nav>
-
-    <div class="toast-container" id="toast-container"></div>
-
-    <script src="/js/theme.js"></script>
-    <script>
         function showToast(msg, type='info') {
             const c = document.getElementById('toast-container');
             const t = document.createElement('div');
@@ -255,6 +246,27 @@
         loadSearchEngine();
         loadBaikeConfig();
         updateGeneralThemeUI();
+    
+        if (typeof updateBaikeConfig !== 'undefined') window.updateBaikeConfig = updateBaikeConfig;
+        if (typeof updateSearchEngine !== 'undefined') window.updateSearchEngine = updateSearchEngine;
+        window.JOnePage = { destroy: function () { _timers.forEach(function (id) { clearInterval(id); }); _timers = []; } };
+    })();
     </script>
+</main>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item"><i data-lucide="layout-dashboard" class="nav-icon"></i><span>概览</span></a>
+            <a href="/monitor-page" class="bottom-nav-item"><i data-lucide="activity" class="nav-icon"></i><span>监控</span></a>
+            <a href="/memes-page" class="bottom-nav-item"><i data-lucide="image" class="nav-icon"></i><span>表情</span></a>
+            <a href="/batch-upload-page" class="bottom-nav-item"><i data-lucide="upload" class="nav-icon"></i><span>上传</span></a>
+            <a href="/general-settings-page" class="bottom-nav-item"><i data-lucide="settings" class="nav-icon"></i><span>设置</span></a>
+        </div>
+    </nav>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js?v=20261031"></script>
+    
 </body>
 </html>

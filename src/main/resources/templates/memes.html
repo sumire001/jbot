@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="shortcut icon" type="image/png" href="/favicon.png?v=1">
     <title>表情包管理 - ichikaBot</title>
-    <link rel="stylesheet" href="/css/theme.css?v=20260815">
+    <link rel="stylesheet" href="/css/theme.css?v=20261031g">
     <!-- Lucide 矢量图标库（defer：并行加载，不阻塞页面渲染） -->
-    <script src="https://unpkg.com/lucide@latest" defer></script>
-    <style>
+    <script src="/js/lucide.min.js?v=20261031g" defer></script>
+    <script src="/js/app.js?v=20261031h"></script>
+    <style id="page-style">
         /* 表情包管理页面特定样式 */
         .panel {
             background: var(--bg-card);
@@ -16,6 +17,12 @@
             border-radius: 16px;
             padding: 20px;
             margin-bottom: 16px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .panel:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            transform: translateY(-2px);
         }
 
         .panel-header {
@@ -42,7 +49,7 @@
             content: '';
             width: 3px;
             height: 16px;
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             border-radius: 2px;
         }
 
@@ -92,7 +99,7 @@
         }
 
         .category-tab.active {
-            background: var(--gradient-1);
+            background: var(--gradient-primary);
             color: #fff;
             border-color: transparent;
         }
@@ -362,12 +369,12 @@
 
             .form-input {
                 padding: 12px;
-                font-size: 15px;
+                font-size: 16px;
                 min-height: 44px;
             }
 
             .toast-container {
-                top: calc(var(--navbar-height) + 8px);
+                top: 64px;
                 right: 8px;
             }
 
@@ -384,6 +391,16 @@
             .panel-header {
                 flex-direction: column;
                 align-items: flex-start;
+            }
+
+            /* 删除按钮在移动端常显，放大触摸目标 */
+            .meme-action-btn {
+                width: 36px;
+                height: 36px;
+            }
+            .meme-action-btn .nav-icon {
+                width: 18px;
+                height: 18px;
             }
         }
     </style>
@@ -510,54 +527,28 @@
                 <div class="meme-grid" id="meme-grid"></div>
             </div>
         </div>
-    </main>
 
-    <!-- 创建分类弹窗 -->
-    <div class="modal" id="create-modal">
-        <div class="modal-content">
-            <div class="modal-title">新建分类</div>
-            <div class="form-group">
-                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">分类名称</label>
-                <input type="text" id="new-category-name" class="form-input" style="width: 100%;" placeholder="例如: happy, sad">
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="hideCreateCategory()">取消</button>
-                <button class="btn btn-primary" onclick="createCategory()">创建</button>
+        <!-- 创建分类弹窗（置于 .main-content 内：① 直接打开页面时脚本执行前 DOM 已就绪；② 软导航只换 .main-content，弹窗随内容区一起切换） -->
+        <div class="modal" id="create-modal">
+            <div class="modal-content">
+                <div class="modal-title">新建分类</div>
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">分类名称</label>
+                    <input type="text" id="new-category-name" class="form-input" style="width: 100%;" placeholder="例如: happy, sad">
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="hideCreateCategory()">取消</button>
+                    <button class="btn btn-primary" onclick="createCategory()">创建</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- 底部导航（移动端） -->
-    <nav class="bottom-nav">
-        <div class="bottom-nav-items">
-            <a href="/" class="bottom-nav-item">
-                <i data-lucide="layout-dashboard" class="nav-icon"></i>
-                <span>概览</span>
-            </a>
-            <a href="/monitor-page" class="bottom-nav-item">
-                <i data-lucide="activity" class="nav-icon"></i>
-                <span>监控</span>
-            </a>
-            <a href="/memes-page" class="bottom-nav-item active">
-                <i data-lucide="image" class="nav-icon"></i>
-                <span>表情</span>
-            </a>
-            <a href="/batch-upload-page" class="bottom-nav-item">
-                <i data-lucide="upload" class="nav-icon"></i>
-                <span>上传</span>
-            </a>
-            <a href="/general-settings-page" class="bottom-nav-item">
-                <i data-lucide="settings" class="nav-icon"></i>
-                <span>设置</span>
-            </a>
-        </div>
-    </nav>
+        <script>
+    (function () {
+        var _timers = [];
+        var _origSetInterval = window.setInterval;
+        function setInterval(fn, ms) { var id = _origSetInterval(fn, ms); _timers.push(id); return id; }
 
-    <!-- Toast 容器 -->
-    <div class="toast-container" id="toast-container"></div>
-
-    <script src="/js/theme.js"></script>
-    <script>
         let allMemes = {};
         let allStats = {};
         let currentCategory = 'all';
@@ -572,7 +563,18 @@
             setTimeout(() => t.remove(), 3000);
         }
 
+        function showSkeleton() {
+            const grid = document.getElementById('meme-grid');
+            grid.innerHTML = Array.from({length: 8}).map(() => `
+                <div class="skeleton-card">
+                    <div class="skeleton skeleton-img"></div>
+                    <div class="skeleton skeleton-line"></div>
+                    <div class="skeleton skeleton-line short"></div>
+                </div>`).join('');
+        }
+
         async function loadMemes() {
+            showSkeleton();
             try {
                 const [memeRes, dirRes] = await Promise.all([fetch('/api/memes/categories'), fetch('/api/memes/root-dir')]);
                 const memeJson = await memeRes.json();
@@ -586,7 +588,14 @@
                     renderMemeGrid();
                     updateUploadCategorySelect();
                 }
-            } catch (e) { showToast('加载失败: ' + e.message, 'error'); }
+            } catch (e) {
+                showToast('加载失败: ' + e.message, 'error');
+                document.getElementById('meme-grid').innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
+                    <i data-lucide="wifi-off" class="empty-icon" style="width:48px;height:48px"></i>
+                    <div style="font-size:15px;">加载失败，请点击右上角「刷新」重试</div>
+                </div>`;
+                if (window.lucide) lucide.createIcons();
+            }
         }
 
         function renderStats() {
@@ -634,8 +643,9 @@
 
             if (memes.length === 0) {
                 grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
-                    <i data-lucide="inbox" class="empty-icon" style="width:48px;height:48px"></i>
-                    <div>该分类下还没有表情包</div>
+                    <i data-lucide="image-off" class="empty-icon" style="width:48px;height:48px"></i>
+                    <div style="font-size:15px;margin-bottom:12px;">这个分类下还没有表情包</div>
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('file-input').click()">去上传</button>
                 </div>`;
                 if (window.lucide) lucide.createIcons();
                 return;
@@ -701,10 +711,13 @@
         }
 
         const uploadZone = document.getElementById('upload-zone');
-        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
-        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
-        uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
-        document.getElementById('new-category-name').addEventListener('keypress', (e) => { if (e.key === 'Enter') createCategory(); });
+        if (uploadZone) {
+            uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+            uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+            uploadZone.addEventListener('drop', (e) => { e.preventDefault(); uploadZone.classList.remove('dragover'); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+        }
+        const newCatInput = document.getElementById('new-category-name');
+        if (newCatInput) newCatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') createCategory(); });
 
         async function handleLogout() {
             try {
@@ -733,6 +746,48 @@
 
         checkAuth();
         loadMemes();
+    
+        if (typeof createCategory !== 'undefined') window.createCategory = createCategory;
+        if (typeof deleteMeme !== 'undefined') window.deleteMeme = deleteMeme;
+        if (typeof hideCreateCategory !== 'undefined') window.hideCreateCategory = hideCreateCategory;
+        if (typeof loadMemes !== 'undefined') window.loadMemes = loadMemes;
+        if (typeof selectCategory !== 'undefined') window.selectCategory = selectCategory;
+        if (typeof showCreateCategory !== 'undefined') window.showCreateCategory = showCreateCategory;
+        window.JOnePage = { destroy: function () { _timers.forEach(function (id) { clearInterval(id); }); _timers = []; } };
+    })();
     </script>
+</main>
+
+    <!-- 底部导航（移动端） -->
+    <nav class="bottom-nav">
+        <div class="bottom-nav-items">
+            <a href="/" class="bottom-nav-item">
+                <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                <span>概览</span>
+            </a>
+            <a href="/monitor-page" class="bottom-nav-item">
+                <i data-lucide="activity" class="nav-icon"></i>
+                <span>监控</span>
+            </a>
+            <a href="/memes-page" class="bottom-nav-item active">
+                <i data-lucide="image" class="nav-icon"></i>
+                <span>表情</span>
+            </a>
+            <a href="/batch-upload-page" class="bottom-nav-item">
+                <i data-lucide="upload" class="nav-icon"></i>
+                <span>上传</span>
+            </a>
+            <a href="/general-settings-page" class="bottom-nav-item">
+                <i data-lucide="settings" class="nav-icon"></i>
+                <span>设置</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Toast 容器 -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/js/theme.js?v=20261031"></script>
+    
 </body>
 </html>
