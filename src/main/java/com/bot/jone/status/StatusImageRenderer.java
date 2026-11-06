@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -31,7 +32,6 @@ public class StatusImageRenderer {
 
     private static final String TEMPLATE_RESOURCE = "/status/status-template.html";
     private static final String BG_RESOURCE = "/status/status-bg.png";
-    private static final String BG_FILENAME = "status-bg.png";
     private static final long PROC_TIMEOUT_SEC = 90;   // 单次 chromium 进程超时
 
     /** 头像下载失败时的占位：模板原版的 SVG 图标（浅色描边） */
@@ -50,6 +50,9 @@ public class StatusImageRenderer {
 
     /** 模板缓存：只读一次 classpath */
     private volatile String templateCache;
+
+    /** 背景图 base64 缓存：只编码一次 */
+    private volatile String bgBase64Cache;
 
     public StatusImageRenderer(StatusConfig config) {
         this.config = config;
@@ -73,10 +76,8 @@ public class StatusImageRenderer {
             Path htmlFile = dir.resolve("status_" + tag + ".html");
             Path pngFile = dir.resolve("status_" + tag + ".png");
             Path profDir = dir.resolve("prof_" + tag);
-            Path bgFile = dir.resolve(BG_FILENAME);
             try {
                 Files.writeString(htmlFile, fillTemplate(data), StandardCharsets.UTF_8);
-                ensureBgImage(bgFile);
 
                 boolean ok = screenshot(htmlFile, pngFile, profDir);
                 if (!ok || !Files.exists(pngFile) || Files.size(pngFile) == 0) {
@@ -101,6 +102,9 @@ public class StatusImageRenderer {
     /** 模板填充：逐个替换 {{KEY}} 占位符；data 缺失的占位符保留原文 */
     private String fillTemplate(Map<String, String> data) {
         String html = template();
+        // 背景图：直接以 base64 data URI 内嵌，彻底消除 file:// 相对路径依赖
+        // （proot 容器内 chromium 有时解析不到相对路径背景图，导致背景丢失）。
+        html = html.replace("{{BG_IMAGE}}", "data:image/png;base64," + bgBase64());
         // 头像：data 里带 AVATAR_B64（PNG base64，CommandHandler 下载）则以 data URI 内嵌，
         // 否则回退为模板原版 SVG 占位图。截图走本地 file://，内嵌 base64 不依赖网络。
         String avatarB64 = data.remove("AVATAR_B64");
@@ -133,14 +137,23 @@ public class StatusImageRenderer {
         return t;
     }
 
-    /** 把 classpath 里的背景图释放到临时目录（与 HTML 同目录，模板用相对路径引用） */
-    private void ensureBgImage(Path target) throws Exception {
-        if (Files.exists(target)) {
-            return; // 固定资源，释放一次即可
+    /** 读取 classpath 背景图为 base64（只编码一次，缓存复用） */
+    private String bgBase64() {
+        String b = bgBase64Cache;
+        if (b == null) {
+            synchronized (lock) {
+                b = bgBase64Cache;
+                if (b == null) {
+                    try (InputStream is = new ClassPathResource(BG_RESOURCE.substring(1)).getInputStream()) {
+                        b = Base64.getEncoder().encodeToString(is.readAllBytes());
+                        bgBase64Cache = b;
+                    } catch (Exception e) {
+                        throw new IllegalStateException("读取状态背景图失败: " + e.getMessage(), e);
+                    }
+                }
+            }
         }
-        try (InputStream is = new ClassPathResource(BG_RESOURCE.substring(1)).getInputStream()) {
-            Files.copy(is, target);
-        }
+        return b;
     }
 
     /** 组装 chromium 命令前缀：proot 包装（Android/Termux）或裸 chromium（普通 Linux） */
